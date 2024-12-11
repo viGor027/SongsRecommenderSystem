@@ -2,6 +2,7 @@ from FeatureExtractor import FeatureExtractor
 from constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR
 from typing import Literal, List, Tuple
 from dict_types import ConfigType, SongSpecDataDictType
+from config.yaml_utils import save_dict_to_yaml
 import numpy as np
 import yaml
 import os
@@ -206,10 +207,11 @@ class SpectogramPipeline:
         """
         Saves the current configuration settings of the pipeline to a YAML file.
 
-        This method writes the configuration parameters used for spectrogram extraction
-        to a YAML file at the specified path. The configuration includes the number of mel bands,
-        fragment duration, and spectrogram type. Note that the file name provided should not include
-        the file extension, as the method automatically appends the ".yaml" extension.
+        This method uses the `save_dict_to_yaml` utility to write the configuration parameters
+        used for spectrogram extraction to a YAML file at the specified path. The configuration
+        includes the number of mel bands, fragment duration, and spectrogram type. Note that the
+        file name provided should not include the file extension, as the method automatically appends
+        the ".yaml" extension.
 
         Args:
             path (str): The directory path where the configuration file will be saved.
@@ -231,9 +233,7 @@ class SpectogramPipeline:
             'spec_type': self.spec_type
         }
 
-        f = open(os.path.join(path, cfg_file_name + '.yaml'), 'w')
-        yaml.dump({'pipeline': cfg_dct}, f)
-        f.close()
+        save_dict_to_yaml(dct=cfg_dct, path=path, cfg_file_name=cfg_file_name)
 
         return cfg_dct
 
@@ -248,15 +248,15 @@ if __name__ == "__main__":
         n_seconds=N_SECONDS,
         spec_type=SPEC_TYPE)
     # Snippet 1
-    spec = None
-    for sample in ppl.get_data_from_songs():
-        print(sample[0], sample[2])
-        if 'tag6' in sample[2]:
-            spec = sample[1]
-    fig, ax = plt.subplots(figsize=(14, 7))
-    img = librosa.display.specshow(spec, x_axis='time', y_axis='log', ax=ax)
-    fig.colorbar(img, ax=ax)
-    plt.show()
+    # spec = None
+    # for sample in ppl.get_data_from_songs():
+    #     print(sample[0], sample[2])
+    #     if 'tag6' in sample[2]:
+    #         spec = sample[1]
+    # fig, ax = plt.subplots(figsize=(14, 7))
+    # img = librosa.display.specshow(spec, x_axis='time', y_axis='log', ax=ax)
+    # fig.colorbar(img, ax=ax)
+    # plt.show()
 
     # Snippet 2
     # spec = None
@@ -270,5 +270,5 @@ if __name__ == "__main__":
     # plt.show()
 
     # Snippet 3
-    # main_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)))
-    # ppl.save_config(main_folder_path, 'test')
+    main_folder_path = os.path.join(PROJECT_FOLDER_DIR, 'config', 'yaml_files', 'test_config_dir')
+    ppl.save_config(main_folder_path, 'test')
