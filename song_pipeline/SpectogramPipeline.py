@@ -3,6 +3,7 @@ from constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR
 from typing import Literal, List, Tuple
 from dict_types import ConfigType, SongSpecDataDictType
 import numpy as np
+import yaml
 import os
 
 
@@ -40,11 +41,41 @@ class SpectogramPipeline:
             'std': self.fe.extract_specs_from_fragments
         }
 
-        self.n_mels = N_MELS
-        self.n_seconds = N_SECONDS
-        self.spec_type = SPEC_TYPE
+        self.n_mels, self.n_seconds, self.spec_type = [None for _ in range(3)]
 
         self.retrieve_counter = -1  # to be removed after implementing real tags retrieving
+
+    def set_config(self, n_mels: int, n_seconds: int, spec_type: Literal['mel', 'std']):
+        """
+        Configures the pipeline settings for spectrogram extraction.
+
+        This method sets the configuration parameters for the pipeline, including the number of mel bands,
+        the duration of audio fragments, and the type of spectrogram to use.
+
+        Args:
+            n_mels (int): The number of mel bands for mel spectrogram computation.
+            n_seconds (int): The duration of each audio fragment in seconds.
+            spec_type (Literal['mel', 'std']): The type of spectrogram to use.
+                - `'mel'`: Mel spectrogram.
+                - `'std'`: Standard spectrogram.
+        """
+        self.n_mels = n_mels
+        self.n_seconds = n_seconds
+        self.spec_type = spec_type
+
+    def _check_if_config_is_set(self):
+        """
+        Ensures that the pipeline configuration has been properly set.
+
+        This method checks if the essential configuration parameters (`n_mels`, `n_seconds`, `spec_type`)
+        are set. If any of these parameters are missing, an exception is raised to indicate that
+        the pipeline configuration must be set before usage.
+
+        Raises:
+            Exception: If any of the configuration parameters are not set.
+        """
+        if not all([self.n_mels, self.n_seconds, self.spec_type]):
+            raise Exception('SpectogramPipeline._config_is_set(): Pipeline config must be set before usage.')
 
     def get_song_specs(
             self,
@@ -82,6 +113,7 @@ class SpectogramPipeline:
                 - If `return_dict=False`: A list of tuples, where each tuple contains:
                     (song_title, spectrogram_fragment, song_tags).
         """
+        self._check_if_config_is_set()
 
         fragments, sample_rate = self.fe.make_fragments(
             song_path,
@@ -133,6 +165,8 @@ class SpectogramPipeline:
                 - If `return_list_of_dct=False`: A flat list of tuples, where each tuple contains:
                     (song_title, spectrogram_fragment, song_tags).
         """
+        self._check_if_config_is_set()
+
         res = []
         for song in os.listdir(self.songs_path):
             song_path = os.path.join(self.songs_path, song)
@@ -158,6 +192,8 @@ class SpectogramPipeline:
 
         :return: dummy tags
         """
+        self._check_if_config_is_set()
+
         tags = {
             0: ['tag1', 'tag2'],
             1: ['tag3', 'tag4'],
@@ -166,12 +202,18 @@ class SpectogramPipeline:
         self.retrieve_counter += 1
         return tags[self.retrieve_counter % 3]
 
-    def config(self) -> ConfigType:
+    def save_config(self, path: str, cfg_file_name: str) -> ConfigType:
         """
-        Retrieves the current configuration settings of the pipeline.
+        Saves the current configuration settings of the pipeline to a YAML file.
 
-        This method returns the configuration parameters used for spectrogram extraction,
-        including the number of mel bands, fragment duration, and spectrogram type.
+        This method writes the configuration parameters used for spectrogram extraction
+        to a YAML file at the specified path. The configuration includes the number of mel bands,
+        fragment duration, and spectrogram type. Note that the file name provided should not include
+        the file extension, as the method automatically appends the ".yaml" extension.
+
+        Args:
+            path (str): The directory path where the configuration file will be saved.
+            cfg_file_name (str): The name of the configuration file (without the file extension).
 
         Returns:
             ConfigType: A dictionary containing the configuration settings with the following keys:
@@ -181,17 +223,30 @@ class SpectogramPipeline:
                     - `'mel'`: Mel spectrogram.
                     - `'std'`: Standard spectrogram.
         """
-        return {
+        self._check_if_config_is_set()
+
+        cfg_dct = {
             'n_mels': self.n_mels,
             'n_seconds': self.n_seconds,
             'spec_type': self.spec_type
         }
+
+        f = open(os.path.join(path, cfg_file_name + '.yaml'), 'w')
+        yaml.dump({'pipeline': cfg_dct}, f)
+        f.close()
+
+        return cfg_dct
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import librosa
     ppl = SpectogramPipeline(os.path.join(PROJECT_FOLDER_DIR, 'sample'))
+
+    ppl.set_config(
+        n_mels=N_MELS,
+        n_seconds=N_SECONDS,
+        spec_type=SPEC_TYPE)
     # Snippet 1
     spec = None
     for sample in ppl.get_data_from_songs():
@@ -213,3 +268,7 @@ if __name__ == "__main__":
     # img = librosa.display.specshow(spec, x_axis='time', y_axis='log', ax=ax)
     # fig.colorbar(img, ax=ax)
     # plt.show()
+
+    # Snippet 3
+    # main_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)))
+    # ppl.save_config(main_folder_path, 'test')
