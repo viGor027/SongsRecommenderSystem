@@ -5,7 +5,7 @@ import librosa.feature
 import os
 from typing import List, Tuple
 from collections.abc import Iterable
-from .dict_types import MelSpecKwargsType
+from song_pipeline.dict_types import MelSpecKwargsType
 
 
 class FeatureExtractor:
@@ -104,15 +104,19 @@ class FeatureExtractor:
         return res
 
     @staticmethod
-    def make_fragments(path: str, n_seconds: int) -> Tuple[List[np.ndarray], int]:
+    def make_fragments(path: str, n_seconds: int, step: int | None = None) -> Tuple[List[np.ndarray], int]:
         """
         This method loads an audio file from the given path, then divides it into equal-sized
         fragments, each with a duration of `n_seconds`. The fragments are returned as a list of
         numpy arrays.
 
+        Note: Remainder at the end of the song is dropped.
+
         Args:
             path (str): The file path to the audio file to be fragmented.
             n_seconds (int): The duration of each fragment in seconds.
+            step (int): Defines the interval at which consecutive fragments start within the audio.
+                        If None fragments are non-overlapping.
 
         Returns:
             tuple:
@@ -120,7 +124,11 @@ class FeatureExtractor:
                 int: The sample rate of the audio file.
         """
         song, sr = librosa.load(path)
-        return [song[i - n_seconds * sr:i] for i in range(n_seconds * sr, len(song), n_seconds * sr)], sr
+
+        if step is None:
+            step = n_seconds * sr
+
+        return [song[i - n_seconds * sr:i] for i in range(n_seconds * sr, len(song), step)], sr
 
 
 if __name__ == "__main__":

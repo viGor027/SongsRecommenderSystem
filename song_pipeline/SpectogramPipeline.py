@@ -1,10 +1,9 @@
-from FeatureExtractor import FeatureExtractor
-from constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR
+from song_pipeline.FeatureExtractor import FeatureExtractor
+from song_pipeline.constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR
+from song_pipeline.dict_types import ConfigType, SongSpecDataDictType
 from typing import Literal, List, Tuple
-from dict_types import ConfigType, SongSpecDataDictType
 from config.yaml_utils import save_dict_to_yaml
 import numpy as np
-import yaml
 import os
 
 
@@ -48,10 +47,7 @@ class SpectogramPipeline:
 
     def set_config(self, n_mels: int, n_seconds: int, spec_type: Literal['mel', 'std']):
         """
-        Configures the pipeline settings for spectrogram extraction.
-
-        This method sets the configuration parameters for the pipeline, including the number of mel bands,
-        the duration of audio fragments, and the type of spectrogram to use.
+        Sets the pipeline settings for spectrogram extraction.
 
         Args:
             n_mels (int): The number of mel bands for mel spectrogram computation.
@@ -68,10 +64,6 @@ class SpectogramPipeline:
         """
         Ensures that the pipeline configuration has been properly set.
 
-        This method checks if the essential configuration parameters (`n_mels`, `n_seconds`, `spec_type`)
-        are set. If any of these parameters are missing, an exception is raised to indicate that
-        the pipeline configuration must be set before usage.
-
         Raises:
             Exception: If any of the configuration parameters are not set.
         """
@@ -83,7 +75,6 @@ class SpectogramPipeline:
             song_path: str,
             song_title: str,
             song_tags: List[str],
-            spec_type: Literal['mel', 'std'],
             return_dict: bool = False
     ) -> SongSpecDataDictType | List[Tuple[str, np.ndarray, List[str]]]:
         """
@@ -120,7 +111,7 @@ class SpectogramPipeline:
             song_path,
             n_seconds=self.n_seconds
         )
-        song_specs = self.retrieve_specs_fn[spec_type](fragments, sr=sample_rate, n_mels=self.n_mels)
+        song_specs = self.retrieve_specs_fn[self.spec_type](fragments, sr=sample_rate, n_mels=self.n_mels)
         n_specs = len(song_specs)
         if return_dict:
             return {
@@ -141,12 +132,8 @@ class SpectogramPipeline:
             return_list_of_dct: bool = False
     ) -> List[SongSpecDataDictType] | List[Tuple[str, np.ndarray, List[str]]]:
         """
-        Processes all songs in the specified folder and extracts their spectrogram data.
-
-        This method iterates through the songs in the folder, splits each into fragments,
-        computes spectrograms, and organizes the results. The returned data can either be
-        a list of dictionaries (one per song) or a flat list of tuples, depending on the
-        `return_list_of_dct` flag.
+        Processes all songs in the specified folder and extracts their spectrogram data
+        using 'get_song_specs' method.
 
         Args:
             return_list_of_dct (bool):
@@ -177,7 +164,6 @@ class SpectogramPipeline:
                 song_path=song_path,
                 song_title=song_title,
                 song_tags=song_tags,
-                spec_type=self.spec_type,
                 return_dict=return_list_of_dct
             )
 
@@ -206,12 +192,6 @@ class SpectogramPipeline:
     def save_config(self, path: str, cfg_file_name: str) -> ConfigType:
         """
         Saves the current configuration settings of the pipeline to a YAML file.
-
-        This method uses the `save_dict_to_yaml` utility to write the configuration parameters
-        used for spectrogram extraction to a YAML file at the specified path. The configuration
-        includes the number of mel bands, fragment duration, and spectrogram type. Note that the
-        file name provided should not include the file extension, as the method automatically appends
-        the ".yaml" extension.
 
         Args:
             path (str): The directory path where the configuration file will be saved.
