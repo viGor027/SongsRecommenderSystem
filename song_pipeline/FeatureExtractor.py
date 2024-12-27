@@ -104,7 +104,7 @@ class FeatureExtractor:
         return res
 
     @staticmethod
-    def make_fragments(path: str, n_seconds: int, step: int | None = None) -> Tuple[List[np.ndarray], int]:
+    def make_fragments(path: str, n_seconds: int | float, step: int | None = None) -> Tuple[List[np.ndarray], int]:
         """
         This method loads an audio file from the given path, then divides it into equal-sized
         fragments, each with a duration of `n_seconds`. The fragments are returned as a list of
@@ -126,9 +126,9 @@ class FeatureExtractor:
         song, sr = librosa.load(path)
 
         if step is None:
-            step = n_seconds * sr
+            step = int(n_seconds * sr)
 
-        return [song[i - n_seconds * sr:i] for i in range(n_seconds * sr, len(song), step)], sr
+        return [song[i - int(n_seconds * sr):i] for i in range(int(n_seconds * sr), len(song), step)], sr
 
 
 if __name__ == "__main__":
