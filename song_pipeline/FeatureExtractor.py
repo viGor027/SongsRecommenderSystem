@@ -5,7 +5,7 @@ import librosa.feature
 import os
 from typing import List, Tuple
 from collections.abc import Iterable
-from dict_types import MelSpecKwargsType
+from .dict_types import MelSpecKwargsType
 
 
 class FeatureExtractor:
@@ -27,10 +27,6 @@ class FeatureExtractor:
         """
         Extracts spectrograms from the audio files specified in the `paths` attribute.
 
-        This method loads each audio file, computes its Short-Time Fourier Transform (STFT),
-        and converts the resulting amplitude spectrogram to decibels. The spectrograms are
-        then returned as a list of numpy arrays.
-
         Returns:
             list[np.ndarray]: A list of spectrograms in decibel scale, one for each audio file.
         """
@@ -45,10 +41,6 @@ class FeatureExtractor:
     def extract_mel_specs_from_paths(self, n_mels: int) -> List[np.ndarray]:
         """
         Extracts mel spectrograms from the audio files specified in the `paths` attribute.
-
-        This method loads each audio file, computes its mel spectrogram using the specified number
-        of mel bands (`n_mels`), and converts the amplitude spectrogram to decibel scale. The mel
-        spectrograms are returned as a list of numpy arrays.
 
         Args:
             n_mels (int): The number of mel bands to use in the mel spectrogram computation.
@@ -70,10 +62,6 @@ class FeatureExtractor:
     def extract_specs_from_fragments(fragments: Iterable[np.ndarray], **kwargs) -> List[np.ndarray]:
         """
         Extracts spectrograms from an iterable of audio fragments.
-
-        This method processes each audio fragment by computing its Short-Time Fourier Transform (STFT)
-        and converting the resulting amplitude spectrogram to decibel scale. The spectrograms are
-        returned as a list of numpy arrays.
 
         Args:
             fragments (Iterable[np.ndarray]): An iterable containing audio fragments as numpy arrays.
@@ -97,11 +85,6 @@ class FeatureExtractor:
         """
         Extracts mel spectrograms from an iterable of audio fragments.
 
-        This method processes each audio fragment by computing its mel spectrogram
-        using the specified number of mel bands (`n_mels`), and then converts the
-        amplitude spectrogram to decibel scale. The resulting mel spectrograms
-        are returned as a list of numpy arrays.
-
         Args:
             fragments (Iterable[np.ndarray]): An iterable containing audio fragments as numpy arrays.
             **kwargs (MelSpecKwargs): Configuration options for mel spectrogram extraction, including:
@@ -123,8 +106,6 @@ class FeatureExtractor:
     @staticmethod
     def make_fragments(path: str, n_seconds: int) -> Tuple[List[np.ndarray], int]:
         """
-        Splits an audio file into fragments of a specified duration.
-
         This method loads an audio file from the given path, then divides it into equal-sized
         fragments, each with a duration of `n_seconds`. The fragments are returned as a list of
         numpy arrays.
