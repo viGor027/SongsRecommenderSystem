@@ -133,7 +133,6 @@ class Conv1DBaseBlock(nn.Module):
         return x
 
 
-
 if __name__ == "__main__":
     # Usage example
     import os

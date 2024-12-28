@@ -13,7 +13,7 @@ def save_dict_to_yaml(dct: dict, path: str, cfg_file_name: str):
     Args:
         dct (dict): The dictionary to be saved to a YAML file.
         path (str): The directory where the YAML file will be saved.
-        cfg_file_name (str): The name of the YAML file (without the file extension).
+        cfg_file_name (str): The name of the YAML file **(without the file extension)**.
     """
     f = open(os.path.join(path, cfg_file_name + '.yaml'), 'w')
     yaml.dump(dct, f)

@@ -9,20 +9,11 @@ class Conv1DBlockNoDilationWithSkip(nn.Module):
     This block combines the output of a convolutional block (`Conv1DBlockNoDilationNoSkip`) with a halved version
     of its input. The halving is achieved using a convolutional layer with `stride=2` and `kernel_size=2`.
 
+    This class is implemented with causal padding(look at Conv1DBaseBlock implementation for further explanation).
+
     Notes:
         - The `skip_halving_conv` layer reduces the temporal dimension (time axis length) by a factor of 2.
-        - The temporal compression behavior of the main block is due to the following layer:
-
-        ```
-        layers.append(
-            (f'block_{self.block_num}_reduce',
-             nn.Conv1d(in_channels=self.n_filters_per_layer,
-                       out_channels=self.n_filters_per_layer,
-                       kernel_size=2, stride=2)
-             )
-        )
-        ```
-        The `stride=2` and `kernel_size=2` parameters in the `Conv1d` layer halve the temporal dimension of the input.
+        - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
     """
 
     def __init__(self, block_num: int, input_len: int,

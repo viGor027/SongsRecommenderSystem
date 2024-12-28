@@ -4,23 +4,12 @@ from model_components.temporal_compressor.conv1d_base_block import Conv1DBaseBlo
 
 class Conv1DBlockNoDilationNoSkip(nn.Module):
     """
-    A convolutional block that processes 1D inputs without dilation or skip connections by default.
+    A convolutional block that processes 1D inputs without dilation or skip connections.
+
     This class is implemented with causal padding(look at Conv1DBaseBlock implementation for further explanation).
 
-    Note:
+    Notes:
         - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
-          This behavior is due to the following layer in the Conv1DBaseBlock:
-
-            ```
-            layers.append(
-                (f'block_{self.block_num}_reduce',
-                 nn.Conv1d(in_channels=self.n_filters_per_layer,
-                           out_channels=self.n_filters_per_layer,
-                           kernel_size=2, stride=2)
-                 )
-            )
-            ```
-            The `stride=2` and `kernel_size=2` parameters of the `Conv1d` layer halve the temporal dimension of the input.
     """
     def __init__(self, block_num: int, input_len: int,
                  n_input_channels: int, n_layers: int,
