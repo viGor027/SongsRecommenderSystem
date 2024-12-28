@@ -5,6 +5,9 @@ from collections import OrderedDict
 class Conv1DBlockNoDilationNoSkip(nn.Module):
     """
     A convolutional block that processes 1D inputs without dilation or skip connections.
+    This class is implemented with causal padding to ensure that future time steps
+    do not influence the output at any given time step as the compressed output is designed to be passed
+    to an RNN for further temporal processing.
 
     Note:
         Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
@@ -21,20 +24,26 @@ class Conv1DBlockNoDilationNoSkip(nn.Module):
         ```
         The `stride=2` and `kernel_size=2` parameters of the `Conv1d` layer halve the temporal dimension of the input.
     """
-    def __init__(self, block_num: int, spec_len: int,
+    def __init__(self, block_num: int, input_len: int,
                  n_input_channels: int, n_layers: int,
                  n_filters_per_layer: int, kernel_size: int,
                  stride: int):
+        """
+        Notes:
+            - block_num indicates the sequential position of this block in the model.
+            - input_len is a Length of the input's temporal dimension, corresponding to L_in in temporal_compressor/note.md.
+            - n_input_channels is equal to n_mels if this is the first block in a model.
+        """
         super().__init__()
 
         self.block_num = block_num
-        self.spec_len = spec_len  # This variable corresponds to L_in from the formula in temporal_compressor/note.md
+        self.input_len = input_len  # This variable corresponds to L_in from the formula in temporal_compressor/note.md
         self.n_input_channels = n_input_channels  # set to n_mels if it is a first block
         self.n_layers = n_layers
         self.n_filters_per_layer = n_filters_per_layer
         self.kernel_size = kernel_size
         self.stride = stride
-        self.padding_left = (spec_len - 1) * stride - spec_len + 1 * (kernel_size - 1) + 1
+        self.padding_left = (input_len - 1) * stride - input_len + 1 * (kernel_size - 1) + 1
 
         self.block = self.build_conv_block()
 
@@ -80,6 +89,7 @@ class Conv1DBlockNoDilationNoSkip(nn.Module):
         )
 
     def forward(self, x):
+        """Note: PyTorch forward method expects the input to be a batch of samples, even if the batch size is 1."""
         return self.block(x)
 
     def debug_forward(self, x):
@@ -111,10 +121,10 @@ if __name__ == "__main__":
         sample_song_path, sample_song_title,
         ['dummy_tag_1', 'dummy_tag_2'], return_dict=True
     )
-
-    spec_sample = torch.Tensor(song['samples'][4])
+    ith_sample = 4
+    spec_sample = torch.Tensor(song['samples'][ith_sample:ith_sample+1])
     print("Shape before: ", spec_sample.shape)
-    model = Conv1DBlockNoDilationNoSkip(block_num=1, spec_len=spec_sample.shape[1],
+    model = Conv1DBlockNoDilationNoSkip(block_num=1, input_len=spec_sample.shape[-1],
                                         n_input_channels=N_MELS, kernel_size=2, stride=1,
                                         n_filters_per_layer=32,
                                         n_layers=3)
