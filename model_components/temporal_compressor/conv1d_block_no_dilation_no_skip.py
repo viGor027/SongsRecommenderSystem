@@ -48,7 +48,7 @@ if __name__ == "__main__":
     import os
     import torch
     from song_pipeline.constants import N_SECONDS, N_MELS, PROJECT_FOLDER_DIR
-    from song_pipeline.SpectogramPipeline import SpectogramPipeline
+    from song_pipeline.spectogram_pipeline import SpectogramPipeline
     sample_song_title = 'Retrospective_-_Alex_Skrindo__JJD.mp3'
     sample_song_path = os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'music', sample_song_title)
 
