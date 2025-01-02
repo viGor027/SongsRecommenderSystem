@@ -1,8 +1,8 @@
-from song_pipeline.FeatureExtractor import FeatureExtractor
+from song_pipeline.feature_extractor import FeatureExtractor
 from song_pipeline.constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR
 from song_pipeline.dict_types import ConfigType, SongSpecDataDictType
+from song_pipeline.utils import write_dict_to_json
 from typing import Literal, List, Tuple
-from config.yaml_utils import save_dict_to_yaml
 import numpy as np
 import os
 
@@ -88,9 +88,6 @@ class SpectogramPipeline:
             song_path (str): The path to the song file.
             song_title (str): The title of the song.
             song_tags (List[str]): Tags or labels associated with the song.
-            spec_type (Literal['mel', 'std']): The type of spectrogram to compute:
-                - `'mel'`: Mel spectrogram.
-                - `'std'`: Standard spectrogram.
             return_dict (bool): If `True`, returns the data as a dictionary.
                 If `False`, returns the data as a list of tuples.
 
@@ -189,13 +186,12 @@ class SpectogramPipeline:
         self.retrieve_counter += 1
         return tags[self.retrieve_counter % 3]
 
-    def save_config(self, path: str, cfg_file_name: str) -> ConfigType:
+    def save_config(self, path: str) -> ConfigType:
         """
         Saves the current configuration settings of the pipeline to a YAML file.
 
         Args:
-            path (str): The directory path where the configuration file will be saved.
-            cfg_file_name (str): The name of the configuration file (without the file extension).
+            path (str): The path of the configuration file **(including file and file extension)**.
 
         Returns:
             ConfigType: A dictionary containing the configuration settings with the following keys:
@@ -213,7 +209,7 @@ class SpectogramPipeline:
             'spec_type': self.spec_type
         }
 
-        save_dict_to_yaml(dct=cfg_dct, path=path, cfg_file_name=cfg_file_name)
+        write_dict_to_json(cfg_dct, path)
 
         return cfg_dct
 
@@ -250,5 +246,5 @@ if __name__ == "__main__":
     # plt.show()
 
     # Snippet 3
-    main_folder_path = os.path.join(PROJECT_FOLDER_DIR, 'config', 'yaml_files', 'test_config_dir')
-    ppl.save_config(main_folder_path, 'test')
+    main_folder_path = os.path.join(PROJECT_FOLDER_DIR, 'test_config.json')
+    ppl.save_config(main_folder_path)

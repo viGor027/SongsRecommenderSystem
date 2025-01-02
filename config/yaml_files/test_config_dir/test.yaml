@@ -1,4 +1,0 @@
-pipeline:
-  n_mels: 128
-  n_seconds: 10
-  spec_type: mel
