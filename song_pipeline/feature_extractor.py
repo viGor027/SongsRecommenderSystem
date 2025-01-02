@@ -104,7 +104,8 @@ class FeatureExtractor:
         return res
 
     @staticmethod
-    def make_fragments(path: str, n_seconds: int | float, step: int | None = None) -> Tuple[List[np.ndarray], int]:
+    def make_fragments(path: str, n_seconds: int | float,
+                       step: int | None = None) -> Tuple[List[np.ndarray], int] | tuple[None, None]:
         """
         This method loads an audio file from the given path, then divides it into equal-sized
         fragments, each with a duration of `n_seconds`. The fragments are returned as a list of
@@ -123,12 +124,19 @@ class FeatureExtractor:
                 list[np.ndarray]: A list containing the audio fragments as numpy arrays.
                 int: The sample rate of the audio file.
         """
-        song, sr = librosa.load(path)
+        try:
+            song, sr = librosa.load(path)
+            if step is None:
+                step = int(n_seconds * sr)
 
-        if step is None:
-            step = int(n_seconds * sr)
+            return [song[i - int(n_seconds * sr):i] for i in range(int(n_seconds * sr), len(song), step)], sr
+        except Exception as e:
+            print(f"FeatureExtractor.make_fragments: Error when trying to load file from {path}")
+            print(str(e))
+            print(repr(e))
+            return None, None
 
-        return [song[i - int(n_seconds * sr):i] for i in range(int(n_seconds * sr), len(song), step)], sr
+
 
 
 if __name__ == "__main__":

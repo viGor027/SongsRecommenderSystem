@@ -1,7 +1,9 @@
 from song_pipeline.feature_extractor import FeatureExtractor
-from song_pipeline.constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR
+from song_pipeline.constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR,\
+    TAGS_DIR, LABELS_DIR, SONGS_DIR
 from song_pipeline.dict_types import ConfigType, SongSpecDataDictType
-from song_pipeline.utils import write_dict_to_json
+from song_pipeline.utils import write_dict_to_json, read_json_to_dict, get_all_tags, \
+    multi_hot_batch, tags_to_tags_indexes, save_multi_hotted_labels
 from typing import Literal, List, Tuple
 import numpy as np
 import os
@@ -42,10 +44,9 @@ class SpectogramPipeline:
         }
 
         self.n_mels, self.n_seconds, self.spec_type = [None for _ in range(3)]
+        self.song_tags = None  # to be removed after implementing real tags retrieving
 
-        self.retrieve_counter = -1  # to be removed after implementing real tags retrieving
-
-    def set_config(self, n_mels: int, n_seconds: int, spec_type: Literal['mel', 'std']):
+    def set_config(self, n_mels: int, n_seconds: int, spec_type: Literal['mel', 'std'], labels_path: str):
         """
         Sets the pipeline settings for spectrogram extraction.
 
@@ -55,10 +56,13 @@ class SpectogramPipeline:
             spec_type (Literal['mel', 'std']): The type of spectrogram to use.
                 - `'mel'`: Mel spectrogram.
                 - `'std'`: Standard spectrogram.
+            labels_path (str): Path **(including)** to a JSON file containing multi-hot encoded tags
         """
         self.n_mels = n_mels
         self.n_seconds = n_seconds
         self.spec_type = spec_type
+
+        self.song_tags = read_json_to_dict(labels_path)
 
     def _check_if_config_is_set(self):
         """
@@ -67,7 +71,7 @@ class SpectogramPipeline:
         Raises:
             Exception: If any of the configuration parameters are not set.
         """
-        if not all([self.n_mels, self.n_seconds, self.spec_type]):
+        if not all([self.n_mels, self.n_seconds, self.spec_type, self.song_tags]):
             raise Exception('SpectogramPipeline._config_is_set(): Pipeline config must be set before usage.')
 
     def get_song_specs(
@@ -76,7 +80,7 @@ class SpectogramPipeline:
             song_title: str,
             song_tags: List[str],
             return_dict: bool = False
-    ) -> SongSpecDataDictType | List[Tuple[str, np.ndarray, List[str]]]:
+    ) -> SongSpecDataDictType | List[Tuple[str, np.ndarray, List[str]]] | None:
         """
         Extracts spectrograms for a single song and organizes the data.
 
@@ -108,6 +112,9 @@ class SpectogramPipeline:
             song_path,
             n_seconds=self.n_seconds
         )
+
+        if fragments is None or sample_rate is None:
+            return None
         song_specs = self.retrieve_specs_fn[self.spec_type](fragments, sr=sample_rate, n_mels=self.n_mels)
         n_specs = len(song_specs)
         if return_dict:
@@ -156,13 +163,21 @@ class SpectogramPipeline:
         for song in os.listdir(self.songs_path):
             song_path = os.path.join(self.songs_path, song)
             song_title = song[:-4]
-            song_tags = self.retrieve_tags()
+            song_tags = self.retrieve_tags(song_title)
             song_data = self.get_song_specs(
                 song_path=song_path,
                 song_title=song_title,
                 song_tags=song_tags,
                 return_dict=return_list_of_dct
             )
+            if song_data is None:
+                continue
+            else:
+                print(f"Currently processing {song_title}")
+
+            # remove after trials
+            if len(res) > 1000:
+                return res
 
             if return_list_of_dct:
                 res.append(song_data)
@@ -170,21 +185,10 @@ class SpectogramPipeline:
                 res.extend(song_data)
         return res
 
-    def retrieve_tags(self) -> List[str]:
+    def retrieve_tags(self, song_title) -> List[str]:
         """
-        Version of method for demonstration purposes.
-
-        :return: dummy tags
         """
-        self._check_if_config_is_set()
-
-        tags = {
-            0: ['tag1', 'tag2'],
-            1: ['tag3', 'tag4'],
-            2: ['tag5', 'tag6', 'tag7']
-        }
-        self.retrieve_counter += 1
-        return tags[self.retrieve_counter % 3]
+        return self.song_tags[song_title]
 
     def save_config(self, path: str) -> ConfigType:
         """
@@ -213,38 +217,68 @@ class SpectogramPipeline:
 
         return cfg_dct
 
+    @staticmethod
+    def multi_hot_tags_of_all_songs():
+        all_tags = get_all_tags(TAGS_DIR)
+        print(all_tags)
+        song_titles = []
+        song_tags_str = []
+        for song in os.listdir(TAGS_DIR):
+            current_song_tags_str = []
+            song_title = song[:-5]
+            tag_dct = read_json_to_dict(os.path.join(TAGS_DIR, song))
+            for tag in tag_dct["genres"]:
+                if tag == 'Dance-Pop':
+                    current_song_tags_str.append('Dance Pop')
+                elif ', ' in tag:
+                    for nested_t in tag.split(', '):
+                        current_song_tags_str.append(nested_t)
+                else:
+                    current_song_tags_str.append(tag)
+            for tag in tag_dct["mood"]:
+                current_song_tags_str.append(tag)
+            song_titles.append(song_title)
+            song_tags_str.append(current_song_tags_str)
+
+        song_tags_indexes = tags_to_tags_indexes(song_tags_str, all_tags)
+        multi_hotted = multi_hot_batch(song_tags_indexes, len(all_tags))
+        save_multi_hotted_labels(song_titles, multi_hotted, os.path.join(LABELS_DIR, 'labels.json'))
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import librosa
-    ppl = SpectogramPipeline(os.path.join(PROJECT_FOLDER_DIR, 'sample'))
+    ppl = SpectogramPipeline(SONGS_DIR)
 
     ppl.set_config(
         n_mels=N_MELS,
         n_seconds=N_SECONDS,
-        spec_type=SPEC_TYPE)
+        spec_type=SPEC_TYPE,
+        labels_path=os.path.join(LABELS_DIR, 'labels.json')
+    )
+
     # Snippet 1
-    # spec = None
-    # for sample in ppl.get_data_from_songs():
-    #     print(sample[0], sample[2])
-    #     if 'tag6' in sample[2]:
-    #         spec = sample[1]
+    # spec = ppl.get_song_specs(
+    #     os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'music', 'About_To_Go_Down_-_Michael_White__Deflo.mp3'),
+    #     'About_To_Go_Down_-_Michael_White__Deflo.mp3',
+    #     ['dummy_tag'],
+    #     return_dict=True
+    # )["samples"][0]
+    # print(spec.shape, type(spec))
     # fig, ax = plt.subplots(figsize=(14, 7))
     # img = librosa.display.specshow(spec, x_axis='time', y_axis='log', ax=ax)
     # fig.colorbar(img, ax=ax)
     # plt.show()
 
     # Snippet 2
-    # spec = None
-    # for sample in ppl.get_data_from_songs(return_list_of_dct=True):
-    #     print(sample['title'], len(sample['samples']), sample['tags'])
-    #     if 'tag6' in sample['tags']:
-    #         spec = sample['samples'][4]
-    # fig, ax = plt.subplots(figsize=(14, 7))
-    # img = librosa.display.specshow(spec, x_axis='time', y_axis='log', ax=ax)
-    # fig.colorbar(img, ax=ax)
-    # plt.show()
+    data = ppl.get_data_from_songs()
+    for sample in data[40:50]:
+        print(sample[0], sample[1].shape, sample[2])
+        print()
 
     # Snippet 3
-    main_folder_path = os.path.join(PROJECT_FOLDER_DIR, 'test_config.json')
-    ppl.save_config(main_folder_path)
+    # main_folder_path = os.path.join(PROJECT_FOLDER_DIR, 'test_config.json')
+    # ppl.save_config(main_folder_path)
+
+    # Snippet 4
+    ppl.multi_hot_tags_of_all_songs()
