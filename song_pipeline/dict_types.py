@@ -1,4 +1,4 @@
-from typing import TypedDict, List
+from typing import TypedDict, Literal
 import numpy as np
 
 
@@ -21,13 +21,13 @@ class ConfigType(TypedDict):
     Attributes:
         n_mels (int): The number of mel bands used for mel spectrogram computation.
         n_seconds (int): The duration (in seconds) of each audio fragment.
-        spec_type (int): The type of spectrogram being used:
-            - 0 for standard spectrogram.
-            - 1 for mel spectrogram.
+        spec_type (Literal['mel', 'std']): The type of spectrogram being used.
+                - `'mel'`: Mel spectrogram.
+                - `'std'`: Standard spectrogram.
     """
     n_mels: int
     n_seconds: int
-    spec_type: int
+    spec_type: Literal['mel', 'std']
 
 
 class SongSpecDataDictType(TypedDict):
@@ -36,9 +36,9 @@ class SongSpecDataDictType(TypedDict):
 
     Attributes:
         title (str): The title of the song.
-        samples (List[np.ndarray]): A list of spectrogram fragments, where each fragment is a numpy array.
-        tags (List[str]): A list of tags or labels associated with the song.
+        samples (list[np.ndarray]): A list of spectrogram fragments, where each fragment is a numpy array.
+        tags (list[int]): Multi-hot encoded tags.
     """
     title: str
-    samples: List[np.ndarray]
-    tags: List[str]
+    samples: list[np.ndarray]
+    tags: list[int]

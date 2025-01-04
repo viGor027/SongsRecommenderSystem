@@ -4,12 +4,12 @@ import numpy
 
 
 class SongDataset(Dataset):
-    def __init__(self, X: numpy.ndarray, Y: torch.Tensor):
+    def __init__(self, X: torch.Tensor, Y: torch.Tensor):
         """
         Initialize the dataset with features (X) and labels (Y).
 
         Parameters:
-        - X (torch.Tensor): Song spectograms.
+        - X (torch.Tensor): Song spectrograms.
         - Y (torch.Tensor): Multi-hot encoded tags.
         """
         self.X = X

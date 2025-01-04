@@ -2,8 +2,6 @@ import numpy as np
 import librosa
 import librosa.display
 import librosa.feature
-import os
-from typing import List, Tuple
 from collections.abc import Iterable
 from song_pipeline.dict_types import MelSpecKwargsType
 
@@ -23,9 +21,9 @@ class FeatureExtractor:
     def __init__(self, paths: Iterable[str]):
         self.paths = paths
 
-    def extract_specs_from_paths(self) -> List[np.ndarray]:
+    def extract_specs_from_paths(self) -> list[np.ndarray]:
         """
-        Extracts spectrograms from the audio files specified in the `paths` attribute.
+        Extracts spectrograms from the audio files specified in the `self.paths` attribute.
 
         Returns:
             list[np.ndarray]: A list of spectrograms in decibel scale, one for each audio file.
@@ -38,9 +36,9 @@ class FeatureExtractor:
             res.append(spec)
         return res
 
-    def extract_mel_specs_from_paths(self, n_mels: int) -> List[np.ndarray]:
+    def extract_mel_specs_from_paths(self, n_mels: int) -> list[np.ndarray]:
         """
-        Extracts mel spectrograms from the audio files specified in the `paths` attribute.
+        Extracts mel spectrograms from the audio files specified in the `self.paths` attribute.
 
         Args:
             n_mels (int): The number of mel bands to use in the mel spectrogram computation.
@@ -59,7 +57,7 @@ class FeatureExtractor:
         return res
 
     @staticmethod
-    def extract_specs_from_fragments(fragments: Iterable[np.ndarray], **kwargs) -> List[np.ndarray]:
+    def extract_specs_from_fragments(fragments: Iterable[np.ndarray], **kwargs) -> list[np.ndarray]:
         """
         Extracts spectrograms from an iterable of audio fragments.
 
@@ -81,13 +79,13 @@ class FeatureExtractor:
     def extract_mel_spec_from_fragments(
             fragments: Iterable[np.ndarray],
             **kwargs: MelSpecKwargsType
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """
         Extracts mel spectrograms from an iterable of audio fragments.
 
         Args:
             fragments (Iterable[np.ndarray]): An iterable containing audio fragments as numpy arrays.
-            **kwargs (MelSpecKwargs): Configuration options for mel spectrogram extraction, including:
+            **kwargs (MelSpecKwargsType): Configuration options for mel spectrogram extraction, including:
                 - sr (int): Sample rate of the audio fragments.
                 - n_mels (int): The number of mel bands to use in the mel spectrogram computation.
 
@@ -104,14 +102,18 @@ class FeatureExtractor:
         return res
 
     @staticmethod
-    def make_fragments(path: str, n_seconds: int | float,
-                       step: int | None = None) -> Tuple[List[np.ndarray], int] | tuple[None, None]:
+    def make_fragments(
+            path: str,
+            n_seconds: int | float,
+            step: int | None = None
+    ) -> tuple[list[np.ndarray], int] | tuple[None, None]:
         """
         This method loads an audio file from the given path, then divides it into equal-sized
-        fragments, each with a duration of `n_seconds`. The fragments are returned as a list of
-        numpy arrays.
+        fragments, each with a duration of `n_seconds`.
 
-        Note: Remainder at the end of the song is dropped.
+        Notes:
+            - Remainder at the end of the song is dropped.
+            - By default, fragments are non-overlapping, with each fragment consisting of consecutive n_seconds of a song, specify `step` to change it.
 
         Args:
             path (str): The file path to the audio file to be fragmented.
@@ -120,9 +122,9 @@ class FeatureExtractor:
                         If None fragments are non-overlapping.
 
         Returns:
-            tuple:
-                list[np.ndarray]: A list containing the audio fragments as numpy arrays.
-                int: The sample rate of the audio file.
+            The method's return depends on whether the file was loaded successfully:
+                - if loading a file caused no errors: A list containing the audio fragments as numpy arrays, the sample rate of the audio file.
+                - if there was an error during loading a file: None, None.
         """
         try:
             song, sr = librosa.load(path)
@@ -137,28 +139,8 @@ class FeatureExtractor:
             return None, None
 
 
-
-
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    sample_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'sample',
-        'Eminem - Business (Matoma Remix).mp3'
-    )
-
-    paths = [sample_path]
-    # print("#1")
-    song, sr = librosa.load(sample_path)
-    # print(type(song), type(sr))
-    # print("#2")
-    print(song.shape, sr, song.shape[0] // sr)  # ilosc_probek, sample_rate, długosc_piosenki_w_sekundach
-
-    # print("feature", __name__, __file__)  # sanity check
+    # If you want to test the functionality of the class methods, do it here.
+    paths = []
     fe = FeatureExtractor(paths)
-    spec = fe.extract_mel_specs_from_paths(n_mels=100)[0]
-    print(spec.shape, type(spec))
-    fig, ax = plt.subplots(figsize=(14, 7))
-    img = librosa.display.specshow(spec, x_axis='time', y_axis='log', ax=ax)
-    fig.colorbar(img, ax=ax)
-    plt.show()
+    ...
