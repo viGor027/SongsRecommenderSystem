@@ -10,6 +10,8 @@ DOWNLOAD_FILE_PATH = os.path.join(DOWNLOAD_FILE_PATH, 'downloads')
 MUSIC_PATH = os.path.join(DOWNLOAD_FILE_PATH, 'music')
 MOODS_GENRES_PATH = os.path.join(DOWNLOAD_FILE_PATH, 'moods_genres')
 
+FFMPEG_PATH = os.path.join(os.path.dirname(__file__), 'ffmpeg', 'ffmpeg-2025-01-02-git-0457aaf0d3-essentials_build', 'bin', 'ffmpeg.exe')
+
 os.makedirs(DOWNLOAD_FILE_PATH, exist_ok=True)
 os.makedirs(MUSIC_PATH, exist_ok=True)
 os.makedirs(MOODS_GENRES_PATH, exist_ok=True)
@@ -42,9 +44,15 @@ YDL_CHANNEL_OPTS = {
 
 YDL_VIDEO_OPTS = {
     'format': 'bestaudio/best',
+    'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+    }],
     'quiet': False,
     'extract_flat': True,
     'outtmpl': os.path.join(MUSIC_PATH, '%(title)s.%(ext)s'),
+    'ffmpeg_location': FFMPEG_PATH,
 }
 
 # Ncs scraper settings

@@ -79,10 +79,3 @@ for i, url in enumerate(videos_urls):
     process_url(url)
 
 settings.LOGGER.info('All videos processed successfully')
-
-
-
-
-
-
-

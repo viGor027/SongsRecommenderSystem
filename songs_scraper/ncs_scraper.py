@@ -72,6 +72,8 @@ def process_page(page_no: int) -> bool:
         with open(path, 'wb') as file:
             file.write(mp3_response.content)
 
+    return True
+
 # Main loop working for all pages
 # unless settings.MAX_PAGES is set
 settings.LOGGER.info('Starting processing pages')
