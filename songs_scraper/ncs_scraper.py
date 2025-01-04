@@ -56,6 +56,8 @@ def process_page(page_no: int) -> bool:
 
     for title, genre, mood in zip(titles, genres, moods):
         path = os.path.join(settings.MOODS_GENRES_PATH, f'{title}.json')
+        genre = genre[0].split(', ')
+
         with open(path, 'w') as file:
             json.dump({'genres': genre, 'mood': mood}, file)
 
