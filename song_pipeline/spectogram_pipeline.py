@@ -1,6 +1,6 @@
 import torch
 from song_pipeline.feature_extractor import FeatureExtractor
-from song_pipeline.constants import N_MELS, N_SECONDS, SPEC_TYPE, PROJECT_FOLDER_DIR, \
+from song_pipeline.constants import N_MELS, N_SECONDS, STEP, SPEC_TYPE, PROJECT_FOLDER_DIR, \
     TAGS_DIR, LABELS_DIR, SONGS_DIR, DATA_DIR
 from song_pipeline.dict_types import ConfigType, SongSpecDataDictType
 from song_pipeline.utils import write_dict_to_json, read_json_to_dict, get_all_tags, \
@@ -27,6 +27,7 @@ class SpectogramPipeline:
         retrieve_specs_fn (dict): Maps spectrogram types ('mel', 'std') to corresponding extraction methods.
         n_mels (int): Number of mel bands for mel spectrograms.
         n_seconds (int): Duration of audio fragments in seconds.
+        step (int | float): Defines the interval (in seconds) at which consecutive fragments start within the audio.
         spec_type (str): Type of spectrogram to extract ('mel' or 'std').
         song_tags (dict): Multi-hot encoded tags for the songs.
     """
@@ -39,10 +40,13 @@ class SpectogramPipeline:
             'std': self.fe.extract_specs_from_fragments
         }
 
-        self.n_mels, self.n_seconds, self.spec_type = [None for _ in range(3)]
+        self.n_mels, self.n_seconds, self.spec_type, self.step = [None for _ in range(4)]
         self.song_tags = None
 
-    def set_config(self, n_mels: int, n_seconds: int, spec_type: Literal['mel', 'std'], labels_path: str):
+    def set_config(
+            self, n_mels: int, n_seconds: int, step: int | float,
+            spec_type: Literal['mel', 'std'], labels_path: str
+    ):
         """
         Sets the pipeline settings for spectrogram extraction.
 
@@ -52,11 +56,14 @@ class SpectogramPipeline:
             spec_type (Literal['mel', 'std']): The type of spectrogram to use.
                 - `'mel'`: Mel spectrogram.
                 - `'std'`: Standard spectrogram.
+            step (int | float): Defines the interval (in seconds) at which consecutive fragments start within the audio.
+                        Set to n_seconds for fragments to be non-overlapping.
             labels_path (str): Path to a JSON file containing multi-hot encoded tags.
         """
         self.n_mels = n_mels
         self.n_seconds = n_seconds
         self.spec_type = spec_type
+        self.step = step
 
         try:
             self.song_tags = read_json_to_dict(labels_path)
@@ -72,7 +79,7 @@ class SpectogramPipeline:
         Raises:
             Exception: If any of the configuration parameters are not set.
         """
-        if not all([self.n_mels, self.n_seconds, self.spec_type, self.song_tags]):
+        if not all([self.n_mels, self.n_seconds, self.spec_type, self.song_tags, self.step]):
             raise Exception('SpectrogramPipeline._config_is_set(): Pipeline config must be set before usage.')
 
     def get_song_specs(
@@ -107,7 +114,8 @@ class SpectogramPipeline:
 
         fragments, sample_rate = self.fe.make_fragments(
             song_path,
-            n_seconds=self.n_seconds
+            n_seconds=self.n_seconds,
+            step=self.step
         )
 
         if fragments is None or sample_rate is None:
@@ -220,12 +228,19 @@ class SpectogramPipeline:
         cfg_dct = {
             'n_mels': self.n_mels,
             'n_seconds': self.n_seconds,
+            'step': self.step,
             'spec_type': self.spec_type
         }
 
         write_dict_to_json(cfg_dct, path)
 
         return cfg_dct
+
+    @staticmethod
+    def get_broken():
+        broken_dct = dict()
+        broken_dct['broken_songs'] = FeatureExtractor.logger
+        write_dict_to_json(broken_dct, os.path.join(DATA_DIR, 'broken_songs.json'))
 
     @staticmethod
     def multi_hot_tags_of_all_songs():
@@ -270,7 +285,8 @@ if __name__ == "__main__":
         n_mels=N_MELS,
         n_seconds=N_SECONDS,
         spec_type=SPEC_TYPE,
+        step=STEP,
         labels_path=os.path.join(LABELS_DIR, 'labels.json')
     )
     ppl.get_dataset_ready_data(save_data=True)
-
+    ppl.get_broken()

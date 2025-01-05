@@ -1,3 +1,5 @@
+import os.path
+
 import numpy as np
 import librosa
 import librosa.display
@@ -17,6 +19,7 @@ class FeatureExtractor:
     Args:
         paths (Iterable[str]): The file paths to the audio files to be processed.
     """
+    logger = []
 
     def __init__(self, paths: Iterable[str]):
         self.paths = paths
@@ -114,11 +117,12 @@ class FeatureExtractor:
         Notes:
             - Remainder at the end of the song is dropped.
             - By default, fragments are non-overlapping, with each fragment consisting of consecutive n_seconds of a song, specify `step` to change it.
+            (when step is not specified it is sr*n_seconds)
 
         Args:
             path (str): The file path to the audio file to be fragmented.
             n_seconds (int): The duration of each fragment in seconds.
-            step (int): Defines the interval at which consecutive fragments start within the audio.
+            step (int | float): Defines the interval (in seconds) at which consecutive fragments start within the audio.
                         If None fragments are non-overlapping.
 
         Returns:
@@ -130,17 +134,26 @@ class FeatureExtractor:
             song, sr = librosa.load(path)
             if step is None:
                 step = int(n_seconds * sr)
+            else:
+                step = int(step*sr)
 
             return [song[i - int(n_seconds * sr):i] for i in range(int(n_seconds * sr), len(song), step)], sr
         except Exception as e:
             print(f"FeatureExtractor.make_fragments: Error when trying to load file from {path}")
             print(str(e))
             print(repr(e))
+            FeatureExtractor.logger.append(path[len(os.path.dirname(path)):])
             return None, None
 
 
 if __name__ == "__main__":
     # If you want to test the functionality of the class methods, do it here.
+
+    # For example here is snippet comparing how many fragments will be there with step = 5 and with step=n_seconds=10
     paths = []
     fe = FeatureExtractor(paths)
-    ...
+    from song_pipeline.constants import SONGS_DIR
+    path_to_song = os.path.join(SONGS_DIR, "A&B_-_ETikka__MADZI.mp3")
+    print(len(fe.make_fragments(path_to_song, 10, 5)[0]))
+    print(len(fe.make_fragments(path_to_song, 10)[0]))
+    # n_seconds=10 and step=5 returns twice as many fragments than n_seconds=10 and step=10
