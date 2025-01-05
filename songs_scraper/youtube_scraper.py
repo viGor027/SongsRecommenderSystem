@@ -69,7 +69,10 @@ def process_url(url: str) -> None:
             json.dump({'genres': description[0], 'mood': description[1]}, file)
 
         # Saving audio
-        ydl.download([url])
+        settings.YDL_VIDEO_OPTS['outtmpl'] = os.path.join(settings.MUSIC_PATH, f'{video_name}.%(ext)s')
+        with yt_dlp.YoutubeDL(settings.YDL_VIDEO_OPTS) as ydl:
+            ydl.download([url])
+
 
 
 settings.LOGGER.info('Starting processing videos')
