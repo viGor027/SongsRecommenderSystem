@@ -56,6 +56,8 @@ def process_page(page_no: int) -> bool:
 
     for title, genre, mood in zip(titles, genres, moods):
         path = os.path.join(settings.MOODS_GENRES_PATH, f'{title}.json')
+        genre = genre[0].split(', ')
+
         with open(path, 'w') as file:
             json.dump({'genres': genre, 'mood': mood}, file)
 
@@ -71,6 +73,8 @@ def process_page(page_no: int) -> bool:
         path = os.path.join(settings.MUSIC_PATH, f'{title}.mp3')
         with open(path, 'wb') as file:
             file.write(mp3_response.content)
+
+    return True
 
 # Main loop working for all pages
 # unless settings.MAX_PAGES is set
