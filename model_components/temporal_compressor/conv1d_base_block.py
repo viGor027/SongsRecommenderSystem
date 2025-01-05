@@ -1,4 +1,5 @@
 from torch import nn
+import torch
 from collections import OrderedDict
 
 
@@ -53,9 +54,9 @@ class Conv1DBaseBlock(nn.Module):
              nn.Conv1d(
                  in_channels=self.n_input_channels,
                  out_channels=self.n_filters_per_layer,
-                 kernel_size=self.kernel_size, stride=self.stride)
+                 kernel_size=self.kernel_size, stride=self.stride, dtype=torch.float16)
              ),
-            (f'{self.block_num}_activation_0', nn.Tanh())
+            (f'{self.block_num}_activation_0', nn.ReLU())
         ]
 
         if dil := self._get_block_dilation():
@@ -75,20 +76,20 @@ class Conv1DBaseBlock(nn.Module):
                      in_channels=self.n_filters_per_layer,
                      out_channels=self.n_filters_per_layer,
                      kernel_size=self.kernel_size, stride=self.stride,
-                     dilation=layer_dilation)
+                     dilation=layer_dilation, dtype=torch.float16)
                  )
             )
-            layers.append((f'block_{self.block_num}_activation_{i + 1}', nn.Tanh()))
+            layers.append((f'block_{self.block_num}_activation_{i + 1}', nn.ReLU()))
 
         # divides len of time dimension by two
         layers.append(
             (f'block_{self.block_num}_reduce',
              nn.Conv1d(in_channels=self.n_filters_per_layer,
                        out_channels=self.n_filters_per_layer,
-                       kernel_size=2, stride=2)
+                       kernel_size=2, stride=2, dtype=torch.float16)
              )
         )
-        layers.append((f'block_{self.block_num}_end_block_activation', nn.Tanh()))
+        layers.append((f'block_{self.block_num}_end_block_activation', nn.ReLU()))
         return nn.Sequential(
             OrderedDict(
                 layers

@@ -32,7 +32,8 @@ class BaseClassifier(nn.Module):
             ('dense_layer_0',
              nn.Linear(
                  in_features=self.n_input_features,
-                 out_features=self.units_per_layer[0]
+                 out_features=self.units_per_layer[0],
+                 dtype=torch.float16
              )
              )
         ]
@@ -42,7 +43,8 @@ class BaseClassifier(nn.Module):
                 (f"dense_layer_{i+1}",
                  nn.Linear(
                      in_features=self.units_per_layer[i],
-                     out_features=self.units_per_layer[i+1]
+                     out_features=self.units_per_layer[i+1],
+                     dtype=torch.float16
                  )
                  )
             )
@@ -53,7 +55,8 @@ class BaseClassifier(nn.Module):
         layers.append(
             ("dense_clasifier",
              nn.Linear(in_features=self.units_per_layer[self.n_layers-1],
-                       out_features=self.n_classes)
+                       out_features=self.n_classes,
+                       dtype=torch.float16)
              )
         )
         layers.append(
