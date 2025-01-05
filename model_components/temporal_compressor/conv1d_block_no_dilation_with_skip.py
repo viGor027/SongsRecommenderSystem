@@ -34,7 +34,7 @@ class Conv1DBlockNoDilationWithSkip(nn.Module):
         self.skip_halving_conv = nn.Conv1d(
             in_channels=n_input_channels,
             out_channels=n_filters_skip,
-            kernel_size=2, stride=2)
+            kernel_size=2, stride=2, dtype=torch.float16)
 
         self.block = Conv1DBlockNoDilationNoSkip(
             block_num=block_num, input_len=input_len,

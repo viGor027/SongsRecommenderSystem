@@ -156,4 +156,6 @@ if __name__ == "__main__":
     path_to_song = os.path.join(SONGS_DIR, "A&B_-_ETikka__MADZI.mp3")
     print(len(fe.make_fragments(path_to_song, 10, 5)[0]))
     print(len(fe.make_fragments(path_to_song, 10)[0]))
+    frags, sr = fe.make_fragments(path_to_song, 10)
+    #print(fe.extract_mel_spec_from_fragments(frags, sr=sr, n_mels=80)[0].shape)
     # n_seconds=10 and step=5 returns twice as many fragments than n_seconds=10 and step=10
