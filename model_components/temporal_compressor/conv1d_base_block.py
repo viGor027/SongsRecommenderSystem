@@ -54,7 +54,7 @@ class Conv1DBaseBlock(nn.Module):
              nn.Conv1d(
                  in_channels=self.n_input_channels,
                  out_channels=self.n_filters_per_layer,
-                 kernel_size=self.kernel_size, stride=self.stride, dtype=torch.float16)
+                 kernel_size=self.kernel_size, stride=self.stride, dtype=torch.float32)
              ),
             (f'{self.block_num}_activation_0', nn.ReLU())
         ]
@@ -76,7 +76,7 @@ class Conv1DBaseBlock(nn.Module):
                      in_channels=self.n_filters_per_layer,
                      out_channels=self.n_filters_per_layer,
                      kernel_size=self.kernel_size, stride=self.stride,
-                     dilation=layer_dilation, dtype=torch.float16)
+                     dilation=layer_dilation, dtype=torch.float32)
                  )
             )
             layers.append((f'block_{self.block_num}_activation_{i + 1}', nn.ReLU()))
@@ -86,7 +86,7 @@ class Conv1DBaseBlock(nn.Module):
             (f'block_{self.block_num}_reduce',
              nn.Conv1d(in_channels=self.n_filters_per_layer,
                        out_channels=self.n_filters_per_layer,
-                       kernel_size=2, stride=2, dtype=torch.float16)
+                       kernel_size=2, stride=2, dtype=torch.float32)
              )
         )
         layers.append((f'block_{self.block_num}_end_block_activation', nn.ReLU()))

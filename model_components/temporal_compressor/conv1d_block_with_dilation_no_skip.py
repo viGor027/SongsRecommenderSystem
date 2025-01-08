@@ -14,10 +14,12 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
 
     def __init__(self, block_num: int, input_len: int,
                  n_input_channels: int, n_layers: int,
-                 n_filters_per_layer: int, kernel_size: int,
+                 n_filters_per_layer: int, n_filters_skip: int,
+                 kernel_size: int,
                  stride: int):
         """
         Notes:
+            - n_filters_skip is not used and is passed solely for API consistency.
             - block_num indicates the sequential position of this block in the model.
             - input_len is a Length of the input's temporal dimension, corresponding to L_in in temporal_compressor/note.md.
             - n_input_channels is equal to n_mels if this is the first block in a model.
