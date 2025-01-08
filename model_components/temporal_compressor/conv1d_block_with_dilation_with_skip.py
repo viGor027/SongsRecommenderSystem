@@ -41,7 +41,8 @@ class Conv1DBlockWithDilationWithSkip(nn.Module):
             block_num=block_num, input_len=input_len,
             n_input_channels=n_input_channels,
             n_layers=n_layers, n_filters_per_layer=n_filters_per_layer,
-            kernel_size=kernel_size, stride=stride
+            kernel_size=kernel_size, stride=stride,
+            n_filters_skip=-1
         )
 
     def forward(self, x):
