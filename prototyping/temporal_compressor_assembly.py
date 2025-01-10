@@ -84,9 +84,9 @@ class TemporalCompressorAssembly(nn.Module):
         Returns:
             BaseClassifier: A fully connected classifier.
         """
-        n_layers = 1
+        n_layers = 5
         n_input_features = self.classifier_inp
-        units_per_layer = [128]
+        units_per_layer = [256, 224, 192, 160, 128]
 
         classifier = BaseClassifier(
             n_layers=n_layers,
@@ -109,3 +109,10 @@ class TemporalCompressorAssembly(nn.Module):
         x = x.reshape((x.size(0), -1))
         x = self.classifier(x)
         return x
+
+    def save_instance(self):
+        """Saves parameters of assembly"""
+        return {
+            'class_name': self.__class__.__name__,
+            'parameters': self.__dict__
+        }

@@ -27,10 +27,8 @@ class TrainerModule(L.LightningModule):
         x, y = batch
         y_pred = self(x)
         loss = self.criterion(y_pred, y)
-        self.log("val_loss", loss, prog_bar=True)
-
-    def on_validation_epoch_end(self):
-        ...
+        self.log("val_loss", loss, prog_bar=True, on_epoch=True)
+        return loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
