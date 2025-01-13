@@ -1,5 +1,6 @@
 from torch import nn
 from model_components.temporal_compressor.conv1d_base_block import Conv1DBaseBlock
+from typing import Literal
 
 
 class Conv1DBlockNoDilationNoSkip(nn.Module):
@@ -14,8 +15,8 @@ class Conv1DBlockNoDilationNoSkip(nn.Module):
     def __init__(self, block_num: int, input_len: int,
                  n_input_channels: int, n_layers: int,
                  n_filters_per_layer: int, n_filters_skip: int,
-                 kernel_size: int,
-                 stride: int):
+                 kernel_size: int, stride: int,
+                 reduction_strat: Literal['conv', 'max_pool', 'avg_pool'] = 'conv'):
         """
         Notes:
             - n_filters_skip is not used and is passed solely for API consistency.
@@ -29,7 +30,7 @@ class Conv1DBlockNoDilationNoSkip(nn.Module):
             block_num=block_num, input_len=input_len,
             n_input_channels=n_input_channels, n_layers=n_layers,
             n_filters_per_layer=n_filters_per_layer, kernel_size=kernel_size,
-            stride=stride, dilation=False
+            stride=stride, dilation=False, reduction_strat=reduction_strat
         )
 
     def forward(self, x):

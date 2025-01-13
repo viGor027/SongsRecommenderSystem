@@ -1,6 +1,7 @@
 from torch import nn
 import torch
 from collections import OrderedDict
+from typing import Literal
 
 
 class Conv1DBaseBlock(nn.Module):
@@ -13,24 +14,13 @@ class Conv1DBaseBlock(nn.Module):
         - Dilation in this class is provided to allow the block to be used
           in a convenient way as a component in larger blocks.
         - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
-          This behavior is due to the following layer in the block:
-
-            ```
-            layers.append(
-                (f'block_{self.block_num}_reduce',
-                 nn.Conv1d(in_channels=self.n_filters_per_layer,
-                           out_channels=self.n_filters_per_layer,
-                           kernel_size=2, stride=2)
-                 )
-            )
-            ```
-            The `stride=2` and `kernel_size=2` parameters of the `Conv1d` layer halve the temporal dimension of the input.
     """
 
     def __init__(self, block_num: int, input_len: int,
                  n_input_channels: int, n_layers: int,
                  n_filters_per_layer: int, kernel_size: int,
-                 stride: int, dilation: bool = False):
+                 stride: int, dilation: bool = False,
+                 reduction_strat: Literal['conv', 'max_pool', 'avg_pool'] = 'conv'):
         """Note: block_num indicates the sequential position of this block in the model."""
 
         super().__init__()
@@ -43,6 +33,7 @@ class Conv1DBaseBlock(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
+        self.reduction_strat = reduction_strat
         self.padding_left = (input_len - 1) * stride - input_len + 1 * (kernel_size - 1) + 1
 
         self.block = self.build_conv_block()
@@ -82,13 +73,26 @@ class Conv1DBaseBlock(nn.Module):
             layers.append((f'block_{self.block_num}_activation_{i + 1}', nn.ReLU()))
 
         # divides len of time dimension by two
-        layers.append(
-            (f'block_{self.block_num}_reduce',
-             nn.Conv1d(in_channels=self.n_filters_per_layer,
-                       out_channels=self.n_filters_per_layer,
-                       kernel_size=2, stride=2, dtype=torch.float32)
-             )
-        )
+        if self.reduction_strat == 'conv':
+            layers.append(
+                (f'block_{self.block_num}_conv_reduce',
+                 nn.Conv1d(in_channels=self.n_filters_per_layer,
+                           out_channels=self.n_filters_per_layer,
+                           kernel_size=2, stride=2, dtype=torch.float32)
+                 )
+            )
+        elif self.reduction_strat == 'max_pool':
+            layers.append(
+                (f'block_{self.block_num}_max_pool_reduce',
+                 nn.MaxPool1d(kernel_size=2, stride=2)
+                )
+            )
+        elif self.reduction_strat == 'avg_pool':
+            layers.append(
+                (f'block_{self.block_num}_avg_pool_reduce',
+                 nn.AvgPool1d(kernel_size=2, stride=2)
+                 )
+            )
         layers.append((f'block_{self.block_num}_end_block_activation', nn.ReLU()))
         return nn.Sequential(
             OrderedDict(

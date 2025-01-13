@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
 from model_components.classifier.base_classifier import BaseClassifier
+from typing import Literal
 
 
-class TemporalCompressorAssembly(nn.Module):
+class MainAssembly(nn.Module):
     """
-    A wrapper for convenient assembling temporal compressors. Used for the purpose of grid searching optimal temporal
-    compressor architecture.
+    A wrapper for convenient assembling temporal compressors.
 
     Args:
        ConvCls (nn.Module): Convolutional block class used for feature extraction.
@@ -24,7 +24,8 @@ class TemporalCompressorAssembly(nn.Module):
                  n_filters_per_block: list[int],
                  n_filters_per_skip: list[int],
                  input_len: int, n_input_channels: int,
-                 n_classes: int, with_classifier: bool = True):
+                 n_classes: int, reduction_strat: Literal['conv', 'max_pool', 'avg_pool'] = 'conv',
+                 with_classifier: bool = True):
         super().__init__()
 
         self.ConvCls = ConvCls
@@ -32,9 +33,11 @@ class TemporalCompressorAssembly(nn.Module):
         self.n_layers_per_block = n_layers_per_block
         self.n_filters_per_block = n_filters_per_block
         self.n_filters_per_skip = n_filters_per_skip
+        self.reduction_strat = reduction_strat
         self.input_len = input_len
         self.n_input_channels = n_input_channels
         self.n_classes = n_classes
+        self.with_classifier = with_classifier
 
         self.conv = self.build_conv()
         self.classifier = self.build_class()
@@ -57,6 +60,7 @@ class TemporalCompressorAssembly(nn.Module):
                          n_layers=self.n_layers_per_block[0],
                          n_filters_per_layer=self.n_filters_per_block[0],
                          n_filters_skip=self.n_filters_per_skip[0],
+                         reduction_strat=self.reduction_strat,
                          kernel_size=2, stride=1)
         ]
         inp_len = self.input_len // 2
@@ -68,6 +72,7 @@ class TemporalCompressorAssembly(nn.Module):
                              n_layers=self.n_layers_per_block[i+1],
                              n_filters_per_layer=self.n_filters_per_block[i+1],
                              n_filters_skip=self.n_filters_per_skip[i+1],
+                             reduction_strat=self.reduction_strat,
                              kernel_size=2, stride=1)
             )
             inp_len = inp_len // 2
@@ -114,5 +119,16 @@ class TemporalCompressorAssembly(nn.Module):
         """Saves parameters of assembly"""
         return {
             'class_name': self.__class__.__name__,
-            'parameters': self.__dict__
+            'parameters': {
+                        "ConvCls": str(self.ConvCls),
+                        "n_blocks": self.n_blocks,
+                        "n_layers_per_block": self.n_layers_per_block,
+                        "n_filters_per_block": self.n_filters_per_block,
+                        "n_filters_per_skip": self.n_filters_per_skip,
+                        "input_len": self.input_len,
+                        "n_input_channels": self.n_input_channels,
+                        "n_classes": self.n_classes,
+                        "reduction_strat": self.reduction_strat,
+                        "with_classifier": self.with_classifier
+                        }
         }
