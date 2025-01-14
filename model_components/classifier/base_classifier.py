@@ -8,13 +8,14 @@ class BaseClassifier(nn.Module):
     A base classifier designed primarily for testing and training other modules.
     """
     def __init__(self, n_layers: int, n_input_features: int,
-                 units_per_layer: list[int], n_classes: int):
+                 units_per_layer: list[int], n_classes: int, sigmoid_output: bool = True):
         """
         - n_layers (int): The number of layers in the model.
           This does not include the final layer, which outputs the probabilities for the classes.
         - n_input_features (int): The number of input features for the first layer.
         - units_per_layer (list[int]): A list specifying the number of units(out_features) in each layer.
         - n_classes (int): The number of output classes for the classifier.
+        - sigmoid_output (bool): Whether to pass final layer output through sigmoid
         """
 
         super().__init__()
@@ -23,6 +24,7 @@ class BaseClassifier(nn.Module):
         self.n_input_features = n_input_features
         self.units_per_layer = units_per_layer
         self.n_classes = n_classes
+        self.sigmoid_output = sigmoid_output
 
         self.block = self.build()
 
@@ -62,9 +64,10 @@ class BaseClassifier(nn.Module):
              )
         )
         layers.append(("batch_norm_classifier_end", nn.BatchNorm1d(self.n_classes)))
-        layers.append(
-            ("classifier_end_activation", nn.Sigmoid())
-        )
+        if self.sigmoid_output:
+            layers.append(
+                ("classifier_end_activation", nn.Sigmoid())
+            )
 
         return nn.Sequential(
             OrderedDict(
