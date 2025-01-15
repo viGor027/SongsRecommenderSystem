@@ -169,3 +169,8 @@ sample/*
 !sample/.gitkeep
 
 sandbox.py
+
+
+key.json
+
+lightning_logs/
