@@ -43,6 +43,7 @@ class GCSModelCheckpoint(Callback):
             if is_better:
                 self.best_value = current_value
                 checkpoint_dict = checkpoint
+                checkpoint_dict['best_loss'] = self.best_value
                 success = save_checkpoint_to_gcs(
                     checkpoint=checkpoint_dict,
                     bucket_name=self.bucket_name,

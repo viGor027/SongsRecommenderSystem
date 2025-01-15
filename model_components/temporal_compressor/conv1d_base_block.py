@@ -40,37 +40,38 @@ class Conv1DBaseBlock(nn.Module):
 
     def build_conv_block(self):
         layers = [
-            (f'block_{self.block_num}_padding_0', self._get_padding_layer(1)),
-            (f'block_{self.block_num}_conv_0',
-             nn.Conv1d(
-                 in_channels=self.n_input_channels,
-                 out_channels=self.n_filters_per_layer,
-                 kernel_size=self.kernel_size, stride=self.stride, dtype=torch.float32)
-             ),
-            (f'{self.block_num}_activation_0', nn.ReLU())
+            # (f'block_{self.block_num}_padding_0', self._get_padding_layer(1)),
+            # (f'block_{self.block_num}_conv_0',
+            #  nn.Conv1d(
+            #      in_channels=self.n_input_channels,
+            #      out_channels=self.n_filters_per_layer,
+            #      kernel_size=self.kernel_size, stride=self.stride, dtype=torch.float32)
+            #  ),
+            # (f'{self.block_num}_activation_0', nn.ReLU())
         ]
 
         if dil := self._get_block_dilation():
             dilation = dil
         else:
-            dilation = [1 for _ in range(self.n_layers - 1)]
+            dilation = [1 for _ in range(self.n_layers)]
 
-        for i in range(self.n_layers - 1):
+        for i in range(self.n_layers):
             layer_dilation = dilation[i]
+            in_channels = self.n_filters_per_layer if i != 0 else self.n_input_channels
             layers.append(
-                (f'block_{self.block_num}_padding_{i + 1}',
+                (f'block_{self.block_num}_padding_{i}',
                  self._get_padding_layer(layer_dilation))
             )
             layers.append(
-                (f'block_{self.block_num}_conv_{i + 1}',
+                (f'block_{self.block_num}_conv_{i}',
                  nn.Conv1d(
-                     in_channels=self.n_filters_per_layer,
+                     in_channels=in_channels,
                      out_channels=self.n_filters_per_layer,
                      kernel_size=self.kernel_size, stride=self.stride,
                      dilation=layer_dilation, dtype=torch.float32)
                  )
             )
-            layers.append((f'block_{self.block_num}_activation_{i + 1}', nn.ReLU()))
+            layers.append((f'block_{self.block_num}_activation_{i}', nn.ReLU()))
 
         # divides len of time dimension by two
         if self.reduction_strat == 'conv':
@@ -122,7 +123,7 @@ class Conv1DBaseBlock(nn.Module):
                        otherwise, an empty list.
         """
         if self.dilation:
-            return [2 ** (i + 1) for i in range(self.n_layers - 1)]
+            return [2 ** i for i in range(self.n_layers)]
         return []
 
     def forward(self, x):
@@ -140,34 +141,19 @@ class Conv1DBaseBlock(nn.Module):
 
 if __name__ == "__main__":
     # Usage example
-    import os
     import torch
-    from song_pipeline.constants import N_SECONDS, N_MELS, PROJECT_FOLDER_DIR
-    from song_pipeline.spectogram_pipeline import SpectogramPipeline
 
-    sample_song_title = 'Retrospective_-_Alex_Skrindo__JJD.mp3'
-    sample_song_path = os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'music', sample_song_title)
+    sample_len = 200
+    sample_channels = 80
 
-    music_dir = os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'music')
-    songs_titles = os.listdir(music_dir)
-    songs_paths = [os.path.join(music_dir, song) for song in songs_titles]
+    sample = torch.randn((4, sample_channels, sample_len))
 
-    ppl = SpectogramPipeline(music_dir)
-    ppl.set_config(n_seconds=N_SECONDS, n_mels=N_MELS, spec_type='mel')
-
-    song = ppl.get_song_specs(
-        sample_song_path, sample_song_title,
-        ['dummy_tag_1', 'dummy_tag_2'], return_dict=True
-    )
-    ith_sample = 4
-    spec_sample = torch.Tensor(song['samples'][ith_sample:ith_sample + 1])
-    print("Shape before: ", spec_sample.shape)
-    model = Conv1DBaseBlock(block_num=1, input_len=spec_sample.shape[-1],
-                            n_input_channels=N_MELS, kernel_size=2, stride=1,
+    model = Conv1DBaseBlock(block_num=1, input_len=sample_len,
+                            n_input_channels=sample_channels, kernel_size=2, stride=1,
                             n_filters_per_layer=32,
-                            n_layers=8, dilation=True)
-    # p = model(spec_sample)
-    p = model.debug_forward(spec_sample)
-    print("Shape after: ", p.shape)
+                            n_layers=2, dilation=True)
+    # sample = model(sample)
+    sample = model.debug_forward(sample)
+    print("Shape after: ", sample.shape)
     print("Resulting tensor: ")
-    print(p)
+    print()
