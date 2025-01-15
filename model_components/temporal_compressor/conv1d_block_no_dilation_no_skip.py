@@ -12,6 +12,7 @@ class Conv1DBlockNoDilationNoSkip(nn.Module):
     Notes:
         - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
     """
+
     def __init__(self, block_num: int, input_len: int,
                  n_input_channels: int, n_layers: int,
                  n_filters_per_layer: int, n_filters_skip: int,
@@ -48,33 +49,19 @@ class Conv1DBlockNoDilationNoSkip(nn.Module):
 
 if __name__ == "__main__":
     # Usage example
-    import os
     import torch
-    from song_pipeline.constants import N_SECONDS, N_MELS, PROJECT_FOLDER_DIR, LABELS_DIR
-    from song_pipeline.spectogram_pipeline import SpectogramPipeline
-    sample_song_title = 'Retrospective_-_Alex_Skrindo__JJD.mp3'
-    sample_song_path = os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'music', sample_song_title)
 
-    music_dir = os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'music')
-    songs_titles = os.listdir(music_dir)
-    songs_paths = [os.path.join(music_dir, song) for song in songs_titles]
+    sample_len = 200
+    sample_channels = 80
 
-    ppl = SpectogramPipeline(music_dir)
-    ppl.set_config(n_seconds=N_SECONDS, n_mels=N_MELS, spec_type='mel', step=N_SECONDS, labels_path=os.path.join(LABELS_DIR, 'labels.json'))
+    sample = torch.randn((4, sample_channels, sample_len))
 
-    song = ppl.get_song_specs(
-        sample_song_path, sample_song_title,
-        [0, 2], return_dict=True
-    )
-    ith_sample = 4
-    spec_sample = torch.Tensor(song['samples'][ith_sample:ith_sample+1])
-    print("Shape before: ", spec_sample.shape)
-    model = Conv1DBlockNoDilationNoSkip(block_num=1, input_len=spec_sample.shape[-1],
-                                        n_input_channels=N_MELS, kernel_size=2, stride=1,
-                                        n_filters_per_layer=32,
-                                        n_layers=3)
-    p = model(spec_sample)
-    # p = model.debug_forward(spec_sample)
-    print("Shape after: ", p.shape)
+    model = Conv1DBlockNoDilationNoSkip(block_num=1, input_len=sample_len,
+                                        n_input_channels=sample_channels, kernel_size=2, stride=1,
+                                        n_filters_per_layer=64,
+                                        n_filters_skip=16,
+                                        n_layers=2, reduction_strat='conv')
+    sample = model.debug_forward(sample)
+    print("Shape after: ", sample.shape)
     print("Resulting tensor: ")
-    print(p)
+    print()

@@ -39,16 +39,7 @@ class Conv1DBaseBlock(nn.Module):
         self.block = self.build_conv_block()
 
     def build_conv_block(self):
-        layers = [
-            # (f'block_{self.block_num}_padding_0', self._get_padding_layer(1)),
-            # (f'block_{self.block_num}_conv_0',
-            #  nn.Conv1d(
-            #      in_channels=self.n_input_channels,
-            #      out_channels=self.n_filters_per_layer,
-            #      kernel_size=self.kernel_size, stride=self.stride, dtype=torch.float32)
-            #  ),
-            # (f'{self.block_num}_activation_0', nn.ReLU())
-        ]
+        layers = []
 
         if dil := self._get_block_dilation():
             dilation = dil
@@ -75,9 +66,10 @@ class Conv1DBaseBlock(nn.Module):
 
         # divides len of time dimension by two
         if self.reduction_strat == 'conv':
+            in_channels = self.n_filters_per_layer if self.n_layers != 0 else self.n_input_channels
             layers.append(
                 (f'block_{self.block_num}_conv_reduce',
-                 nn.Conv1d(in_channels=self.n_filters_per_layer,
+                 nn.Conv1d(in_channels=in_channels,
                            out_channels=self.n_filters_per_layer,
                            kernel_size=2, stride=2, dtype=torch.float32)
                  )
