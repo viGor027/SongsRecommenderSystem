@@ -2,7 +2,7 @@ import torch
 from song_pipeline.feature_extractor import FeatureExtractor
 from song_pipeline.constants import N_MELS, N_SECONDS, STEP, SPEC_TYPE, PROJECT_FOLDER_DIR, \
     TAGS_DIR, LABELS_DIR, SONGS_DIR, DATA_DIR
-from song_pipeline.dict_types import ConfigType, SongSpecDataDictType
+from song_pipeline.dict_types import ConfigType, SongSpecDataType
 from song_pipeline.utils import write_dict_to_json, read_json_to_dict, get_all_tags, \
     multi_hot_batch, tags_to_tags_indexes, save_multi_hotted_labels, prepare_for_dataset
 from typing import Literal
@@ -29,6 +29,8 @@ class SpectogramPipeline:
         n_seconds (int): Duration of audio fragments in seconds.
         step (int | float): Defines the interval (in seconds) at which consecutive fragments start within the audio.
         spec_type (str): Type of spectrogram to extract ('mel' or 'std').
+        validation_probability (float): Defines a chance of fragment being added to a validation set;
+                        fragment gets to a training set with a chance equal to 1-validation_probability.
         song_tags (dict): Multi-hot encoded tags for the songs.
     """
 
@@ -40,11 +42,11 @@ class SpectogramPipeline:
             'std': self.fe.extract_specs_from_fragments
         }
 
-        self.n_mels, self.n_seconds, self.spec_type, self.step = [None for _ in range(4)]
+        self.n_mels, self.n_seconds, self.spec_type, self.step, self.validation_probability = [None for _ in range(5)]
         self.song_tags = None
 
     def set_config(
-            self, n_mels: int, n_seconds: int, step: int | float,
+            self, n_mels: int, n_seconds: int, step: int | float, validation_probability: float,
             spec_type: Literal['mel', 'std'], labels_path: str
     ):
         """
@@ -58,12 +60,15 @@ class SpectogramPipeline:
                 - `'std'`: Standard spectrogram.
             step (int | float): Defines the interval (in seconds) at which consecutive fragments start within the audio.
                         Set to n_seconds for fragments to be non-overlapping.
+            validation_probability (float): Defines a chance of fragment being added to a validation set;
+                        fragment gets to a training set with a chance equal to 1-validation_probability.
             labels_path (str): Path to a JSON file containing multi-hot encoded tags.
         """
         self.n_mels = n_mels
         self.n_seconds = n_seconds
         self.spec_type = spec_type
         self.step = step
+        self.validation_probability = validation_probability
 
         try:
             self.song_tags = read_json_to_dict(labels_path)
@@ -79,7 +84,8 @@ class SpectogramPipeline:
         Raises:
             Exception: If any of the configuration parameters are not set.
         """
-        if not all([self.n_mels, self.n_seconds, self.spec_type, self.song_tags, self.step]):
+        if not all(
+                [self.n_mels, self.n_seconds, self.spec_type, self.song_tags, self.step, self.validation_probability]):
             raise Exception('SpectrogramPipeline._config_is_set(): Pipeline config must be set before usage.')
 
     def get_song_specs(
@@ -88,7 +94,9 @@ class SpectogramPipeline:
             song_title: str,
             song_tags: list[int],
             return_dict: bool = False
-    ) -> SongSpecDataDictType | list[tuple[str, np.ndarray, list[int]]] | None:
+    ) -> SongSpecDataType | \
+            tuple[list[tuple[str, np.ndarray, list[int]]], list[tuple[str, np.ndarray, list[int]]]] | \
+            tuple[None, None]:
         """
         Extracts spectrograms for a single song and organizes the data.
 
@@ -105,41 +113,55 @@ class SpectogramPipeline:
         Returns:
             Depending on `return_list_of_dct':
                 - If `return_list_of_dct=True`: A dictionary with the following structure:
-                {'title': str, 'samples': list[np.ndarray], 'tags': list[int]}
+                {'title': str, 'validation_samples': list[np.ndarray], 'training_samples': list[np.ndarray], 'tags': list[int]}
 
-                - If `return_list_of_dct=False`: A flat list of tuples, where each tuple contains:
-                (song_title, spectrogram_fragment, song_tags).
+                - If `return_list_of_dct=False`: Tuple containing two flat list of tuples, where each tuple contains:
+                (song_title, spectrogram_fragment, song_tags); first element of a tuple contains training samples;
+                second element of a tuple contains validation samples.
         """
         self._check_if_config_is_set()
 
-        fragments, sample_rate = self.fe.make_fragments(
+        train_fragments, validation_fragments, sample_rate = self.fe.make_fragments(
             song_path,
             n_seconds=self.n_seconds,
+            validation_probability=self.validation_probability,
             step=self.step
         )
 
-        if fragments is None or sample_rate is None:
-            return None
-        song_specs = self.retrieve_specs_fn[self.spec_type](fragments, sr=sample_rate, n_mels=self.n_mels)
-        n_specs = len(song_specs)
+        if train_fragments is None or validation_fragments is None or sample_rate is None:
+            return None, None
+        training_specs = self.retrieve_specs_fn[self.spec_type](train_fragments, sr=sample_rate, n_mels=self.n_mels)
+        validation_specs = self.retrieve_specs_fn[self.spec_type](
+            validation_fragments,
+            sr=sample_rate, n_mels=self.n_mels)
+        n_validation_specs = len(validation_specs)
+        n_train_specs = len(training_specs)
         if return_dict:
             return {
                 'title': song_title,
-                'samples': song_specs,
+                'validation_samples': validation_specs,
+                'training_samples': training_specs,
                 'tags': song_tags
             }
         return list(
             zip(
-                [song_title for _ in range(n_specs)],
-                song_specs,
-                [song_tags for _ in range(n_specs)]
+                [song_title for _ in range(n_train_specs)],
+                training_specs,
+                [song_tags for _ in range(n_train_specs)]
+            )
+        ), list(
+            zip(
+                [song_title for _ in range(n_validation_specs)],
+                validation_specs,
+                [song_tags for _ in range(n_validation_specs)]
             )
         )
 
     def get_data_from_songs(
             self,
             return_list_of_dct: bool = False
-    ) -> list[SongSpecDataDictType] | list[tuple[str, np.ndarray, list[int]]]:
+    ) -> tuple[list[SongSpecDataType], list[SongSpecDataType]] | \
+            tuple[list[tuple[str, np.ndarray, list[int]]], list[tuple[str, np.ndarray, list[int]]]]:
         """
         Processes all songs in the `self.song_path` directory and extracts their spectrogram data
         using 'get_song_specs' method.
@@ -149,35 +171,39 @@ class SpectogramPipeline:
 
         Returns:
             Depending on `return_list_of_dct':
-                - If `return_list_of_dct=True`: A list of dictionaries with the following structure:
-                {'title': str, 'samples': list[np.ndarray], 'tags': list[int]}
+                - If `return_list_of_dct=True`: A tuple containing two lists of dictionaries with the following structure:
+                {'title': str, 'samples': list[np.ndarray], 'tags': list[int]};
+                first tuple item is training data, second tuple item is validation data.
 
-                - If `return_list_of_dct=False`: A flat list of tuples, where each tuple contains:
-                (song_title, spectrogram_fragment, song_tags).
+                - If `return_list_of_dct=False`: A tuple containing two flat list of tuples, where each tuple contains:
+                (song_title, spectrogram_fragment, song_tags);
+                first tuple item is training data, second tuple item is validation data.
         """
         self._check_if_config_is_set()
 
-        res = []
+        train, valid = [], []
         for song in os.listdir(self.songs_path):
             song_path = os.path.join(self.songs_path, song)
             song_title = song[:-4]
             song_tags = self._retrieve_tags(song_title)
-            song_data = self.get_song_specs(
+            training_data, validation_data = self.get_song_specs(
                 song_path=song_path,
                 song_title=song_title,
                 song_tags=song_tags,
                 return_dict=return_list_of_dct
             )
-            if song_data is None:
+            if training_data is None or validation_data is None:
                 continue
             else:
                 print(f"Processed {song_title}")
 
             if return_list_of_dct:
-                res.append(song_data)
+                valid.append(validation_data)
+                train.append(training_data)
             else:
-                res.extend(song_data)
-        return res
+                valid.extend(validation_data)
+                train.extend(training_data)
+        return train, valid
 
     def _retrieve_tags(self, song_title: str) -> list[int]:
         """
@@ -188,27 +214,28 @@ class SpectogramPipeline:
         """
         return self.song_tags[song_title]
 
-    def get_dataset_ready_data(self, save_data: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
+    def make_dataset_ready_data(self) -> None:
         """
         Processes all the downloaded songs to be ready to pass into torch Dataset.
-
-        Args:
-            save_data (bool): whether to save X, Y tensors to a file in `DATA_DIR`.
-                              If set to True tensors are saved together with pipeline config into `DATA_DIR`.
+        Saves tensors containing training and validation data to `DATA_DIR`.
 
         Returns:
-            X and Y tensors of the songs.
+            None
         """
-        data = self.get_data_from_songs()
-        X, Y = prepare_for_dataset(data, shuffle=True)
-        if save_data:
-            if not os.path.exists(DATA_DIR):
-                os.makedirs(DATA_DIR)
-            torch.save(X, os.path.join(DATA_DIR, 'X.pt'))
-            torch.save(Y, os.path.join(DATA_DIR, 'Y.pt'))
-            self.save_config(os.path.join(DATA_DIR, 'pipeline_config.json'))
+        train_data, valid_data = self.get_data_from_songs()
+        X_train, Y_train = prepare_for_dataset(train_data, shuffle=True)
+        self._save_data(X_train, Y_train, set_label='train')
+        X_valid, Y_valid = prepare_for_dataset(valid_data, shuffle=True)
+        self._save_data(X_valid, Y_valid, set_label='valid')
+        self.save_config(os.path.join(DATA_DIR, 'pipeline_config.json'))
 
-        return X, Y
+    @staticmethod
+    def _save_data(X: torch.Tensor, Y: torch.Tensor, set_label: Literal['train', 'valid']):
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+        torch.save(X, os.path.join(DATA_DIR, f'X_{set_label}.pt'))
+        torch.save(Y, os.path.join(DATA_DIR, f'Y_{set_label}.pt'))
+        print(f"dataset saved to {DATA_DIR}")
 
     def save_config(self, path: str) -> ConfigType:
         """
@@ -229,15 +256,18 @@ class SpectogramPipeline:
             'n_mels': self.n_mels,
             'n_seconds': self.n_seconds,
             'step': self.step,
+            'validation_probability': self.validation_probability,
             'spec_type': self.spec_type
         }
 
         write_dict_to_json(cfg_dct, path)
+        print(f"SpectogramPipeline config was saved to{path}")
 
         return cfg_dct
 
     @staticmethod
     def get_broken():
+        """Helper utility"""
         broken_dct = dict()
         broken_dct['broken_songs'] = FeatureExtractor.logger
         write_dict_to_json(broken_dct, os.path.join(DATA_DIR, 'broken_songs.json'))
@@ -286,7 +316,8 @@ if __name__ == "__main__":
         n_seconds=N_SECONDS,
         spec_type=SPEC_TYPE,
         step=STEP,
+        validation_probability=0.07,
         labels_path=os.path.join(LABELS_DIR, 'labels.json')
     )
-    ppl.get_dataset_ready_data(save_data=True)
+    ppl.make_dataset_ready_data()
     ppl.get_broken()

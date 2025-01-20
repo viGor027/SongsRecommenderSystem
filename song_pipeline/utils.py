@@ -91,7 +91,7 @@ def multi_hot_batch(y: list[list[int]], n_classes: int) -> torch.Tensor:
     return multi_hotted
 
 
-def save_multi_hotted_labels(songs_titles: list[str], songs_labels: list[torch.Tensor], path: str):
+def save_multi_hotted_labels(songs_titles: list[str], songs_labels: torch.Tensor, path: str):
     """
     Params:
         songs_titles: Titles of a songs to save
@@ -116,7 +116,7 @@ def prepare_for_dataset(data: list[Tuple[str, np.ndarray, list[int]]],
    Args:
        data (list[Tuple[str, np.ndarray, list[int]]]): A list of tuples containing:
            - Song title (str)
-           - Spectrograms as a NumPy array (np.ndarray)
+           - Spectrogram as a NumPy array (np.ndarray)
            - Labels as a list of integers (list[int])
        shuffle (bool, optional): Whether to shuffle the data. Defaults to False.
 
@@ -153,12 +153,12 @@ if __name__ == "__main__":
     print("tags indexes: ")
     print(batch_of_tags_idx)
 
-    multi_hotted = multi_hot_batch(batch_of_tags, len(example_tags))
+    multi_hotted = multi_hot_batch(batch_of_tags_idx, len(example_tags))
     print(multi_hotted)
     print(multi_hotted.shape)
 
     example_path = os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'labels')
-    save_multi_hotted_labels(example_songs, list(multi_hotted), os.path.join(example_path, 'test.json'))
+    save_multi_hotted_labels(example_songs, multi_hotted, os.path.join(example_path, 'test.json'))
 
     loaded = read_json_to_dict(os.path.join(example_path, 'test.json'))
     print(loaded)

@@ -1,5 +1,4 @@
 import os.path
-
 import numpy as np
 import librosa
 import librosa.display
@@ -107,9 +106,10 @@ class FeatureExtractor:
     @staticmethod
     def make_fragments(
             path: str,
+            validation_probability: float,
             n_seconds: int | float,
-            step: int | None = None
-    ) -> tuple[list[np.ndarray], int] | tuple[None, None]:
+            step: int | None = None,
+    ) -> tuple[list[np.ndarray], list[np.ndarray], int] | tuple[None, None, None]:
         """
         This method loads an audio file from the given path, then divides it into equal-sized
         fragments, each with a duration of `n_seconds`.
@@ -121,41 +121,86 @@ class FeatureExtractor:
 
         Args:
             path (str): The file path to the audio file to be fragmented.
+            validation_probability (float): Defines a chance of fragment being added to a validation set;
+                        fragment gets to a training set with a chance equal to 1-validation_probability.
             n_seconds (int): The duration of each fragment in seconds.
             step (int | float): Defines the interval (in seconds) at which consecutive fragments start within the audio.
                         If None fragments are non-overlapping.
 
         Returns:
             The method's return depends on whether the file was loaded successfully:
-                - if loading a file caused no errors: A list containing the audio fragments as numpy arrays, the sample rate of the audio file.
-                - if there was an error during loading a file: None, None.
+                - if loading a file caused no errors: A tuple (training fragments, validation fragments, sample rate).
+                - if there was an error during loading a file: A tuple (None, None, None).
         """
+        if not (0 < validation_probability < 1):
+            raise ValueError(f"Number {validation_probability} is out of range. Expected range is 0 to 1, excluding 0 "
+                             f"and 1.")
+
         try:
             song, sr = librosa.load(path)
             if step is None:
                 step = int(n_seconds * sr)
             else:
-                step = int(step*sr)
-
-            return [song[i - int(n_seconds * sr):i] for i in range(int(n_seconds * sr), len(song), step)], sr
+                step = int(step * sr)
+            valid = []
+            train = []
+            i = int(n_seconds * sr)
+            recent_sample_to_valid = None
+            while i < len(song):
+                sample_to_valid = np.random.choice([False, True],
+                                                   p=[1 - validation_probability, validation_probability])
+                if sample_to_valid and recent_sample_to_valid:
+                    # current sample goes to validation set, recent sample also went to validation set
+                    # no need for skipping
+                    valid.append(song[i - int(n_seconds * sr):i])
+                    recent_sample_to_valid = True
+                elif sample_to_valid and not recent_sample_to_valid:
+                    # current sample goes to validation set, recent sample went to training set,
+                    # we skip the part that overlap
+                    i += int(n_seconds * sr) - step
+                    if i >= len(song):
+                        break
+                    valid.append(song[i - int(n_seconds * sr):i])
+                    recent_sample_to_valid = True
+                elif not sample_to_valid and not recent_sample_to_valid:
+                    # current sample goes to training set, recent sample went to train,
+                    # no need for skipping
+                    train.append(song[i - int(n_seconds * sr):i])
+                    recent_sample_to_valid = False
+                else:
+                    # current sample goes to validation set, recent sample went to training set,
+                    # we skip the part that overlap
+                    i += int(n_seconds * sr) - step
+                    if i >= len(song):
+                        break
+                    valid.append(song[i - int(n_seconds * sr):i])
+                    recent_sample_to_valid = False
+                i += step
+            return train, valid, sr
         except Exception as e:
             print(f"FeatureExtractor.make_fragments: Error when trying to load file from {path}")
             print(str(e))
             print(repr(e))
             FeatureExtractor.logger.append(path[len(os.path.dirname(path)):])
-            return None, None
+            return None, None, None
 
 
 if __name__ == "__main__":
-    # If you want to test the functionality of the class methods, do it here.
-
-    # For example here is snippet comparing how many fragments will be there with step = 5 and with step=n_seconds=10
-    paths = []
-    fe = FeatureExtractor(paths)
+    # make_fragments usage example
     from song_pipeline.constants import SONGS_DIR
     path_to_song = os.path.join(SONGS_DIR, "A&B_-_ETikka__MADZI.mp3")
-    print(len(fe.make_fragments(path_to_song, 10, 5)[0]))
-    print(len(fe.make_fragments(path_to_song, 10)[0]))
-    frags, sr = fe.make_fragments(path_to_song, 10)
-    #print(fe.extract_mel_spec_from_fragments(frags, sr=sr, n_mels=80)[0].shape)
-    # n_seconds=10 and step=5 returns twice as many fragments than n_seconds=10 and step=10
+
+    # Initialize the FeatureExtractor with the path
+    fe = FeatureExtractor([path_to_song])
+
+    # Extract fragments of the song
+    train, valid, sr = fe.make_fragments(path_to_song,
+                                         validation_probability=0.07,
+                                         n_seconds=5,
+                                         step=1)  # 10-second fragments
+
+    T_size, V_size = len(train), len(valid)
+    print(T_size, V_size, T_size+V_size)
+    print(T_size/(T_size+V_size), V_size/(T_size+V_size))
+    print(len(valid[1]), len(valid[-1]))
+    print(len(train[1]), len(train[-1]))
