@@ -199,7 +199,7 @@ class CnnDenseAssembly(nn.Module):
             },
             'classifier': {
                 "n_classifier_layers": self.n_classifier_layers,
-                "n_units_per_layer": self.n_units_per_classifier_layer,
+                "n_units_per_classifier_layer": self.n_units_per_classifier_layer,
                 "n_classes": self.n_classes
             }
         }

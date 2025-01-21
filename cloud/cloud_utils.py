@@ -1,3 +1,11 @@
+from prototyping.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
+from prototyping.assemblies.cnn_dense_assembly import CnnDenseAssembly
+
+from model_components.temporal_compressor.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
+from model_components.temporal_compressor.conv1d_block_no_dilation_with_skip import Conv1DBlockNoDilationWithSkip
+from model_components.temporal_compressor.conv1d_block_with_dilation_no_skip import Conv1DBlockWithDilationNoSkip
+from model_components.temporal_compressor.conv1d_block_with_dilation_with_skip import Conv1DBlockWithDilationWithSkip
+
 import os
 import torch
 from google.cloud import storage
@@ -41,6 +49,39 @@ def save_dict_to_gcs_as_json(data_dict, bucket_name, folder_name, file_name):
     except Exception as e:
         print(f"Error saving JSON data: {e}")
         return False
+
+
+def read_json_from_gcs_to_dict(bucket_name, folder_name, file_name):
+    """
+    Reads a JSON file stored in a specified folder in the given GCS bucket and loads it into a Python dictionary.
+
+    Args:
+        bucket_name (str): The name of the GCS bucket (e.g., `my_bucket`).
+        folder_name (str): The folder name where the JSON file is stored.
+        file_name (str): The name of the file (without extension).
+
+    Returns:
+        dict: The JSON data loaded into a Python dictionary.
+    """
+    try:
+        # Initialize GCS client
+        client = storage.Client()
+
+        # Access the bucket and blob
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(f"{folder_name}/{file_name}.json")
+
+        # Download the blob as bytes
+        json_data = blob.download_as_bytes()
+
+        # Decode bytes to a string and parse as JSON
+        data_dict = json.loads(json_data.decode('utf-8'))
+
+        print(f"JSON data successfully read from {folder_name}/{file_name}.json in {bucket_name}")
+        return data_dict
+    except Exception as e:
+        print(f"Error reading JSON data: {e}")
+        raise
 
 
 def save_tensor_to_gcs(tensor, bucket_name, folder_name, tensor_name):
@@ -224,11 +265,50 @@ def load_checkpoint_correctly(model, checkpoint):
     return model
 
 
+def get_ready_model_from_gcs_checkpoint(bucket_name, folder_name, checkpoint_name, cfg_file_name, verbose=False):
+    assembly_map = {
+        "CnnDenseAssembly": CnnDenseAssembly,
+        "CnnRnnDenseAssembly": CnnRnnDenseAssembly
+    }
+    conv_cls_map = {
+        "Conv1DBlockNoDilationNoSkip": Conv1DBlockNoDilationNoSkip,
+        "Conv1DBlockNoDilationWithSkip": Conv1DBlockNoDilationWithSkip,
+        "Conv1DBlockWithDilationNoSkip": Conv1DBlockWithDilationNoSkip,
+        "Conv1DBlockWithDilationWithSkip": Conv1DBlockWithDilationWithSkip,
+    }
+
+    ckpt = load_checkpoint_from_gcs(bucket_name, folder_name, checkpoint_name)
+    cfg_dict = read_json_from_gcs_to_dict(bucket_name, folder_name, cfg_file_name)
+
+    conv_cls_key = cfg_dict['temporal_compressor']['ConvCls']
+    cfg_dict['temporal_compressor']['ConvCls'] = conv_cls_map[conv_cls_key]
+
+    assembly_map_key = cfg_dict["class_name"]
+
+    if verbose:
+        print("Loaded configuration:", end='\n\n')
+        print(f"Parent assembly: {assembly_map_key}")
+        print(f"Loss of the model: {cfg_dict['best_loss']}", end='\n\n')
+        print('temporal_compressor: ')
+        print(cfg_dict['temporal_compressor'], end='\n\n')
+        print('sequence_encoder: ')
+        print(cfg_dict['sequence_encoder'], end='\n\n')
+        print('classifier: ')
+        print(cfg_dict['classifier'], end='\n\n')
+
+    model = assembly_map[assembly_map_key]()
+    model.init_conv(**cfg_dict['temporal_compressor'])
+    model.init_seq_encoder(**cfg_dict['sequence_encoder'])
+    model.init_classifier(**cfg_dict['classifier'])
+    model = load_checkpoint_correctly(model, ckpt)
+    return model
+
+
 if __name__ == "__main__":
     from song_pipeline.constants import DATA_DIR
-    Y = torch.load(os.path.join(DATA_DIR, 'min_dataset', 'Y_min.pt'))
-    print(Y.shape, Y.dtype)
-    save_tensor_to_gcs(Y, 'data_versions', 'test', 'Y')
-    y_load = load_tensor_from_gcs('data_versions', 'test', 'Y')
-    print("LOADED")
-    print(y_load.shape, y_load.dtype)
+    get_ready_model_from_gcs_checkpoint(
+        bucket_name="models_training_ckpt",
+        folder_name="test_cloud_2",
+        checkpoint_name="test_cloud_2_ckpt",
+        cfg_file_name="cfg",
+        verbose=True)
