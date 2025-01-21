@@ -68,3 +68,6 @@ class GCSModelCheckpoint(Callback):
         Restore the state of the callback (e.g., best_value).
         """
         self.best_value = state_dict.get('best_value', float("inf") if self.mode == "min" else -float("inf"))
+
+    def retrieve_best_loss(self):
+        return self.best_value

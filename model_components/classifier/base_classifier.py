@@ -29,36 +29,28 @@ class BaseClassifier(nn.Module):
         self.block = self.build()
 
     def build(self):
-        layers = [
-            ('dense_layer_0',
-             nn.Linear(
-                 in_features=self.n_input_features,
-                 out_features=self.units_per_layer[0],
-                 dtype=torch.float32
-             )
-             ),
-            ('batch_norm_classifier_0', nn.BatchNorm1d(self.units_per_layer[0])),
-            ('classifier_activation_0', nn.ReLU())
-        ]
+        layers = []
 
-        for i in range(self.n_layers-1):
+        for i in range(self.n_layers):
+            in_features = self.n_input_features if i == 0 else self.units_per_layer[i-1]
             layers.append(
-                (f"dense_layer_{i+1}",
+                (f"dense_layer_{i}",
                  nn.Linear(
-                     in_features=self.units_per_layer[i],
-                     out_features=self.units_per_layer[i+1],
+                     in_features=in_features,
+                     out_features=self.units_per_layer[i],
                      dtype=torch.float32
                  )
                  )
             )
-            layers.append((f"batch_norm_classifier_{i+1}", nn.BatchNorm1d(self.units_per_layer[i+1])))
+            layers.append((f"batch_norm_classifier_{i}", nn.BatchNorm1d(self.units_per_layer[i])))
             layers.append(
-                (f"classifier_activation_{i+1}", nn.ReLU())
+                (f"classifier_activation_{i}", nn.ReLU())
             )
 
+        in_features = self.n_input_features if self.n_layers == 0 else self.units_per_layer[self.n_layers - 1]
         layers.append(
             ("dense_classifier",
-             nn.Linear(in_features=self.units_per_layer[self.n_layers-1],
+             nn.Linear(in_features=in_features,
                        out_features=self.n_classes,
                        dtype=torch.float32)
              )
@@ -102,9 +94,9 @@ if __name__ == "__main__":
     n_classes = 5
 
     model = BaseClassifier(
-        n_layers=n_layers,
+        n_layers=0,
         n_input_features=n_input_features,
-        units_per_layer=units_per_layer,
+        units_per_layer=[],
         n_classes=n_classes
     )
 
