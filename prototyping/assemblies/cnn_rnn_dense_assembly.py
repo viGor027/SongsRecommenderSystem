@@ -204,7 +204,7 @@ class CnnRnnDenseAssembly(nn.Module):
         return {
             'class_name': self.__class__.__name__,
             'temporal_compressor': {
-                "ConvCls": str(self.ConvCls),
+                "ConvCls": str(self.ConvCls).split('.')[-1][:-2],
                 "input_len": self.input_len,
                 "n_input_channels": self.n_input_channels,
                 "n_blocks": self.n_blocks,
