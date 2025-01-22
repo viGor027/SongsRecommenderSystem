@@ -316,7 +316,7 @@ if __name__ == "__main__":
         n_seconds=N_SECONDS,
         spec_type=SPEC_TYPE,
         step=STEP,
-        validation_probability=0.07,
+        validation_probability=0.08,
         labels_path=os.path.join(LABELS_DIR, 'labels.json')
     )
     ppl.make_dataset_ready_data()
