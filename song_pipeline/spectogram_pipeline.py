@@ -214,7 +214,7 @@ class SpectogramPipeline:
         """
         return self.song_tags[song_title]
 
-    def make_dataset_ready_data(self) -> None:
+    def make_dataset_ready_data(self, set_num: int) -> None:
         """
         Processes all the downloaded songs to be ready to pass into torch Dataset.
         Saves tensors containing training and validation data to `DATA_DIR`.
@@ -224,17 +224,17 @@ class SpectogramPipeline:
         """
         train_data, valid_data = self.get_data_from_songs()
         X_train, Y_train = prepare_for_dataset(train_data, shuffle=True)
-        self._save_data(X_train, Y_train, set_label='train')
+        self._save_data(X_train, Y_train, set_label='train', set_num=set_num)
         X_valid, Y_valid = prepare_for_dataset(valid_data, shuffle=True)
-        self._save_data(X_valid, Y_valid, set_label='valid')
+        self._save_data(X_valid, Y_valid, set_label='valid', set_num=set_num)
         self.save_config(os.path.join(DATA_DIR, 'pipeline_config.json'))
 
     @staticmethod
-    def _save_data(X: torch.Tensor, Y: torch.Tensor, set_label: Literal['train', 'valid']):
+    def _save_data(X: torch.Tensor, Y: torch.Tensor, set_label: Literal['train', 'valid'], set_num: int):
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)
-        torch.save(X, os.path.join(DATA_DIR, f'X_{set_label}.pt'))
-        torch.save(Y, os.path.join(DATA_DIR, f'Y_{set_label}.pt'))
+        torch.save(X, os.path.join(DATA_DIR, f'X_{set_num}_{set_label}.pt'))
+        torch.save(Y, os.path.join(DATA_DIR, f'Y_{set_num}_{set_label}.pt'))
         print(f"dataset saved to {DATA_DIR}")
 
     def save_config(self, path: str) -> ConfigType:
@@ -309,7 +309,7 @@ class SpectogramPipeline:
 
 if __name__ == "__main__":
     # Run below snippet to prepare data after scraping it
-    ppl = SpectogramPipeline(SONGS_DIR)
+    ppl = SpectogramPipeline(os.path.join(SONGS_DIR, 'music1'))
     ppl.multi_hot_tags_of_all_songs()
     ppl.set_config(
         n_mels=N_MELS,
@@ -319,5 +319,26 @@ if __name__ == "__main__":
         validation_probability=0.08,
         labels_path=os.path.join(LABELS_DIR, 'labels.json')
     )
-    ppl.make_dataset_ready_data()
-    ppl.get_broken()
+    ppl.make_dataset_ready_data(set_num=1)
+
+    ppl = SpectogramPipeline(os.path.join(SONGS_DIR, 'music2'))
+    ppl.set_config(
+        n_mels=N_MELS,
+        n_seconds=N_SECONDS,
+        spec_type=SPEC_TYPE,
+        step=STEP,
+        validation_probability=0.08,
+        labels_path=os.path.join(LABELS_DIR, 'labels.json')
+    )
+    ppl.make_dataset_ready_data(set_num=2)
+
+    ppl = SpectogramPipeline(os.path.join(SONGS_DIR, 'music3'))
+    ppl.set_config(
+        n_mels=N_MELS,
+        n_seconds=N_SECONDS,
+        spec_type=SPEC_TYPE,
+        step=STEP,
+        validation_probability=0.08,
+        labels_path=os.path.join(LABELS_DIR, 'labels.json')
+    )
+    ppl.make_dataset_ready_data(set_num=3)

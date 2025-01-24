@@ -1,5 +1,6 @@
 from prototyping.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
 from prototyping.assemblies.cnn_dense_assembly import CnnDenseAssembly
+from prototyping.assemblies.rnn_dense_assembly import RnnDenseAssembly
 
 from model_components.temporal_compressor.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
 from model_components.temporal_compressor.conv1d_block_no_dilation_with_skip import Conv1DBlockNoDilationWithSkip
@@ -268,22 +269,26 @@ def load_checkpoint_correctly(model, checkpoint):
 def get_ready_model_from_gcs_checkpoint(bucket_name, folder_name, checkpoint_name, cfg_file_name, verbose=False):
     assembly_map = {
         "CnnDenseAssembly": CnnDenseAssembly,
-        "CnnRnnDenseAssembly": CnnRnnDenseAssembly
+        "CnnRnnDenseAssembly": CnnRnnDenseAssembly,
+        "RnnDenseAssembly": RnnDenseAssembly
     }
     conv_cls_map = {
         "Conv1DBlockNoDilationNoSkip": Conv1DBlockNoDilationNoSkip,
         "Conv1DBlockNoDilationWithSkip": Conv1DBlockNoDilationWithSkip,
         "Conv1DBlockWithDilationNoSkip": Conv1DBlockWithDilationNoSkip,
         "Conv1DBlockWithDilationWithSkip": Conv1DBlockWithDilationWithSkip,
+        "None": None
     }
 
     ckpt = load_checkpoint_from_gcs(bucket_name, folder_name, checkpoint_name)
     cfg_dict = read_json_from_gcs_to_dict(bucket_name, folder_name, cfg_file_name)
 
+    assembly_map_key = cfg_dict["class_name"]
+
     conv_cls_key = cfg_dict['temporal_compressor']['ConvCls']
     cfg_dict['temporal_compressor']['ConvCls'] = conv_cls_map[conv_cls_key]
 
-    assembly_map_key = cfg_dict["class_name"]
+
 
     if verbose:
         print("Loaded configuration:", end='\n\n')

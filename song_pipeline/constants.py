@@ -10,5 +10,5 @@ DATA_DIR = os.path.join(PROJECT_FOLDER_DIR, 'downloads', 'data')
 # FeatureExtractor constants
 N_MELS = 80
 N_SECONDS = 5
-STEP = 3
+STEP = 1
 SPEC_TYPE = 'mel'
