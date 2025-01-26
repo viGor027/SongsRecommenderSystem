@@ -132,8 +132,8 @@ class FeatureExtractor:
                 - if loading a file caused no errors: A tuple (training fragments, validation fragments, sample rate).
                 - if there was an error during loading a file: A tuple (None, None, None).
         """
-        if not (0 < validation_probability < 1):
-            raise ValueError(f"Number {validation_probability} is out of range. Expected range is 0 to 1, excluding 0 "
+        if not (0 <= validation_probability <= 1):
+            raise ValueError(f"Number {validation_probability} is out of range. Expected range is 0 to 1, including 0 "
                              f"and 1.")
 
         try:
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     train, valid, sr = fe.make_fragments(path_to_song,
                                          validation_probability=0.07,
                                          n_seconds=5,
-                                         step=1)  # 10-second fragments
+                                         step=1)
 
     T_size, V_size = len(train), len(valid)
     print(T_size, V_size, T_size+V_size)

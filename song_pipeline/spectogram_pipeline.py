@@ -85,7 +85,8 @@ class SpectogramPipeline:
             Exception: If any of the configuration parameters are not set.
         """
         if not all(
-                [self.n_mels, self.n_seconds, self.spec_type, self.song_tags, self.step, self.validation_probability]):
+                [self.n_mels, self.n_seconds, self.spec_type, self.song_tags, self.step]) or \
+                self.validation_probability is None:
             raise Exception('SpectrogramPipeline._config_is_set(): Pipeline config must be set before usage.')
 
     def get_song_specs(
@@ -94,7 +95,7 @@ class SpectogramPipeline:
             song_title: str,
             song_tags: list[int],
             return_dict: bool = False
-    ) -> SongSpecDataType | \
+    ) -> tuple[SongSpecDataType, SongSpecDataType] | \
             tuple[list[tuple[str, np.ndarray, list[int]]], list[tuple[str, np.ndarray, list[int]]]] | \
             tuple[None, None]:
         """
@@ -137,12 +138,17 @@ class SpectogramPipeline:
         n_validation_specs = len(validation_specs)
         n_train_specs = len(training_specs)
         if return_dict:
-            return {
+            training_data: SongSpecDataType = {
                 'title': song_title,
-                'validation_samples': validation_specs,
-                'training_samples': training_specs,
+                'samples': training_specs,
                 'tags': song_tags
             }
+            validation_data: SongSpecDataType = {
+                'title': song_title,
+                'samples': validation_specs,
+                'tags': song_tags
+            }
+            return training_data, validation_data
         return list(
             zip(
                 [song_title for _ in range(n_train_specs)],

@@ -109,7 +109,7 @@ def save_multi_hotted_labels(songs_titles: list[str], songs_labels: torch.Tensor
 
 
 def prepare_for_dataset(data: list[Tuple[str, np.ndarray, list[int]]],
-                        shuffle: bool = False):
+                        shuffle: bool = False, return_titles: bool = False):
     """
    Prepares data for use in a PyTorch Dataset **(including normalizing values to [0,1] range)**.
 
@@ -118,10 +118,15 @@ def prepare_for_dataset(data: list[Tuple[str, np.ndarray, list[int]]],
            - Song title (str)
            - Spectrogram as a NumPy array (np.ndarray)
            - Labels as a list of integers (list[int])
-       shuffle (bool, optional): Whether to shuffle the data. Defaults to False.
+       shuffle (bool): Whether to shuffle the data. Defaults to False.
+       return_titles (bool): Whether to return titles of songs in dataset.
 
    Returns:
-       Tuple[torch.Tensor, torch.Tensor]: Features (X) and labels (Y) as PyTorch tensors.
+       Depending on ``return_titles`:
+            - If `return_titles=True`:
+                Tuple[list[str], torch.Tensor, torch.Tensor]: Titles, Features (X) and labels (Y) as PyTorch tensors.
+            - If `return_titles=False`:
+                Tuple[torch.Tensor, torch.Tensor]: Features (X) and labels (Y) as PyTorch tensors.
     """
     if shuffle:
         np.random.shuffle(data)
@@ -129,7 +134,7 @@ def prepare_for_dataset(data: list[Tuple[str, np.ndarray, list[int]]],
     titles, X, Y = zipped[0], zipped[1], zipped[2]
     X = (np.stack(X, dtype=numpy.float16) + 80.) / 80.
     Y = np.stack(Y, dtype=numpy.float16)
-    return torch.from_numpy(X), torch.from_numpy(Y)
+    return list(titles), torch.from_numpy(X), torch.from_numpy(Y) if return_titles else (torch.from_numpy(X), torch.from_numpy(Y))
 
 
 if __name__ == "__main__":

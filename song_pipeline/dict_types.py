@@ -41,11 +41,9 @@ class SongSpecDataType(TypedDict):
 
     Attributes:
         title (str): The title of the song.
-        validation_samples (list[np.ndarray]): A list of spectrogram fragments, used to create a validation set.
-        training_samples (list[np.ndarray]): A list of spectrogram fragments, used to create a training set.
+        samples (list[np.ndarray]): A list of spectrogram fragments.
         tags (list[int]): Multi-hot encoded tags.
     """
     title: str
-    validation_samples: list[np.ndarray]
-    training_samples: list[np.ndarray]
+    samples: list[np.ndarray]
     tags: list[int]
