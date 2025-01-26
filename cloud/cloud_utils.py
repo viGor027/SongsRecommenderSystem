@@ -288,8 +288,6 @@ def get_ready_model_from_gcs_checkpoint(bucket_name, folder_name, checkpoint_nam
     conv_cls_key = cfg_dict['temporal_compressor']['ConvCls']
     cfg_dict['temporal_compressor']['ConvCls'] = conv_cls_map[conv_cls_key]
 
-
-
     if verbose:
         print("Loaded configuration:", end='\n\n')
         print(f"Parent assembly: {assembly_map_key}")
