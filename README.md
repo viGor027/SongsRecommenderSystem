@@ -1,7 +1,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/github_username/repo_name">
-    <img src="https://i.ibb.co/zZNbRCq/Music-logo.png" alt="Logo" width="80" height="80">
+    <img src="readme/logo.png" alt="Logo" width="80" height="80">
   </a>
 
 <h3 align="center"><b>Songs Recommender System</b></h3>
@@ -44,7 +44,7 @@ In total, the dataset contained ~1700 songs and 89 distinct tags, which helped i
 ### How was the dataset prepared
 
 <p align="center">
-  <img src="https://i.ibb.co/j3Srd5y/spectrogram-vs-mel-spectrogram-vertical.png" alt="spec vs mel spec" />
+  <img src="readme/spectrogram-vs-mel-spectrogram-vertical.png" alt="spec vs mel spec" />
 </p>
 <p align="center"><i>Spectrogram vs Mel Spectrogram</i></p>
 
@@ -58,7 +58,7 @@ making them more suitable for tasks involving music and audio recognition.
 
 ### Song fragmentation
 <p align="center">
-  <img src="https://i.ibb.co/KKffMcZ/set-frag.jpg" alt="spec vs mel spec" />
+  <img src="readme/set_fragmentation.jpg" alt="spec vs mel spec" />
 </p>
 <p align="center"><i>Song fragmentation</i></p>
 <p align="center"><i>green - training set, purple - validation set</i></p>
