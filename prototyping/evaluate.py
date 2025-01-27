@@ -2,14 +2,14 @@ import os
 import torch
 from torcheval.metrics import MultilabelAccuracy
 from torch.nn import BCELoss
-from cloud.cloud_utils import get_ready_model_from_gcs_checkpoint
 from song_pipeline.constants import DATA_DIR
-from  song_pipeline.utils import write_dict_to_json
+from song_pipeline.utils import write_dict_to_json
+import pandas as pd
 
 
-model = get_ready_model_from_gcs_checkpoint(bucket_name='fine_tuned', folder_name='model_1',
-                                            checkpoint_name='model', cfg_file_name='cfg')
-model.eval()
+def remove_redundant_tags(tensor: torch.Tensor):
+    reduced = torch.cat((tensor[:, 1:61], tensor[:, 61 + 1:]), dim=1)
+    return reduced
 
 
 def load_concat_save_valid_set():
@@ -27,7 +27,7 @@ def load_concat_save_valid_set():
     torch.save(Y_valid, os.path.join(DATA_DIR, 'evaluation', 'Y_valid.pt'))
 
 
-def make_and_save_valid_preds():
+def make_and_save_valid_preds(model):
     X_valid = torch.load(os.path.join(DATA_DIR, 'evaluation', 'X_valid.pt'))
     Y_valid = torch.load(os.path.join(DATA_DIR, 'evaluation', 'Y_valid.pt'))
 
@@ -44,16 +44,16 @@ def make_and_save_valid_preds():
         Y_pred.append(model(X_valid[(len(X_valid) // batch_size) * batch_size:]))
 
     Y_pred = torch.concat(Y_pred, dim=0)
-    torch.save(Y_pred, os.path.join(DATA_DIR, 'evaluation', 'Y_pred.pt'))
+    torch.save(Y_pred, os.path.join(DATA_DIR, 'evaluation', 'Y_pred_2.pt'))
 
 
 def evaluate():
     Y_valid = torch.load(os.path.join(DATA_DIR, 'evaluation', 'Y_valid.pt'))
-    Y_pred = torch.load(os.path.join(DATA_DIR, 'evaluation', 'Y_pred.pt'))
+    Y_pred = torch.load(os.path.join(DATA_DIR, 'evaluation', 'Y_pred_2.pt'))
     Y_valid, Y_pred = Y_valid.float(), Y_pred.float()
 
-    Y_valid_reduced = torch.cat((Y_valid[:, 1:61], Y_valid[:, 61 + 1:]), dim=1)
-    Y_pred_reduced = torch.cat((Y_pred[:, 1:61], Y_pred[:, 61 + 1:]), dim=1)
+    Y_valid_reduced = remove_redundant_tags(Y_valid)
+    Y_pred_reduced = remove_redundant_tags(Y_pred)
 
     bce_loss = BCELoss()
     hamming_accuracy = MultilabelAccuracy(criteria="hamming")
@@ -74,4 +74,43 @@ def evaluate():
     print(f"ExactMatch: {metrics['ExactMatch']}")
 
 
-evaluate()
+def hamming_dist_at(y_true: torch.Tensor, y_pred: torch.Tensor):
+    y_true = remove_redundant_tags(y_true)
+    y_pred = remove_redundant_tags(y_pred)
+
+    diff = (y_true != (y_pred > 0.5).int()).int()
+    distance_per_sample = torch.sum(diff, dim=1)
+    unique_values, counts = torch.unique(distance_per_sample, return_counts=True)
+    stacked = torch.stack([unique_values, counts], dim=1)
+    df = pd.DataFrame(stacked.numpy(), columns=['number_of_incorrect_tags', 'number_of_samples'])
+    print("N validation samples: ", y_true.shape[0])
+    df['share_of_total'] = df['number_of_samples'] / y_true.shape[0]
+    print(df)
+    first_group = df.iloc[0, :]
+    first_group['number_of_incorrect_tags'] = '0'
+
+    second_group = df.iloc[1:6 + 1, :].sum()
+    second_group['number_of_incorrect_tags'] = '1 to 6'
+
+    third_group = df.iloc[7:10 + 1, :].sum()
+    third_group['number_of_incorrect_tags'] = '7 to 10'
+
+    fourth_group = df.iloc[11:14 + 1, :].sum()
+    fourth_group['number_of_incorrect_tags'] = '11 to 14'
+
+    fifth_group = df.iloc[15:, :].sum()
+    fifth_group['number_of_incorrect_tags'] = '15 or more'
+
+    print(df, end='\n\n')
+    print(first_group, end='\n\n')
+    print(second_group, end='\n\n')
+    print(third_group, end='\n\n')
+    print(fourth_group, end='\n\n')
+    print(fifth_group, end='\n\n')
+
+
+Y_valid = torch.load(os.path.join(DATA_DIR, 'evaluation', 'Y_valid.pt'))
+Y_pred = torch.load(os.path.join(DATA_DIR, 'evaluation', 'Y_pred.pt'))
+print(Y_pred.shape, Y_valid.shape)
+
+hamming_dist_at(y_true=Y_valid, y_pred=Y_pred)

@@ -183,24 +183,3 @@ class FeatureExtractor:
             print(repr(e))
             FeatureExtractor.logger.append(path[len(os.path.dirname(path)):])
             return None, None, None
-
-
-if __name__ == "__main__":
-    # make_fragments usage example
-    from song_pipeline.constants import SONGS_DIR
-    path_to_song = os.path.join(SONGS_DIR, "A&B_-_ETikka__MADZI.mp3")
-
-    # Initialize the FeatureExtractor with the path
-    fe = FeatureExtractor([path_to_song])
-
-    # Extract fragments of the song
-    train, valid, sr = fe.make_fragments(path_to_song,
-                                         validation_probability=0.07,
-                                         n_seconds=5,
-                                         step=1)
-
-    T_size, V_size = len(train), len(valid)
-    print(T_size, V_size, T_size+V_size)
-    print(T_size/(T_size+V_size), V_size/(T_size+V_size))
-    print(len(valid[1]), len(valid[-1]))
-    print(len(train[1]), len(train[-1]))
