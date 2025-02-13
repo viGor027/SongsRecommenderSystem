@@ -14,3 +14,6 @@ N_MELS = 80
 N_SECONDS = 5
 STEP = 1
 SPEC_TYPE = 'mel'
+
+# Dataset constants
+BATCH_SIZE = 32

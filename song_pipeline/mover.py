@@ -30,4 +30,4 @@ def split_music_files(num_folders):
 
 
 if __name__ == '__main__':
-    split_music_files(80)
+    split_music_files(3)

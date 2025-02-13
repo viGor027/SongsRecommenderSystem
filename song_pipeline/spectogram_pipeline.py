@@ -2,7 +2,7 @@ import torch
 from song_pipeline.tag_processor import TagProcessor
 from song_pipeline.feature_extractor import FeatureExtractor
 from song_pipeline.constants import PROJECT_FOLDER_DIR, SONGS_DIR, DATA_DIR, \
-    N_MELS, LABELS_DIR, N_SECONDS, SPEC_TYPE, STEP
+    N_MELS, LABELS_DIR, N_SECONDS, SPEC_TYPE, STEP, BATCH_SIZE
 from song_pipeline.dict_types import ConfigType, SongSpecDataType
 from song_pipeline.utils import write_dict_to_json, read_json_to_dict
 from typing import Literal
@@ -42,11 +42,12 @@ class SpectogramPipeline:
             'std': self.fe.extract_specs_from_fragments
         }
 
-        self.n_mels, self.n_seconds, self.spec_type, self.step, self.validation_probability = [None for _ in range(5)]
+        self.n_mels, self.n_seconds, self.spec_type, self.step, self.validation_probability, self.bath_size = [None for _ in range(6)]
         self.song_tags = None
 
     def set_config(
-            self, n_mels: int, n_seconds: int, step: int | float, validation_probability: float,
+            self, n_mels: int, n_seconds: int, step: int | float,
+            validation_probability: float, batch_size: int,
             spec_type: Literal['mel', 'std'], labels_path: str
     ):
         """
@@ -62,6 +63,7 @@ class SpectogramPipeline:
                         Set to n_seconds for fragments to be non-overlapping.
             validation_probability (float): Defines a chance of fragment being added to a validation set;
                         fragment gets to a training set with a chance equal to 1-validation_probability.
+            batch_size (int): Batch size.
             labels_path (str): Path to a JSON file containing multi-hot encoded tags.
         """
         self.n_mels = n_mels
@@ -69,6 +71,7 @@ class SpectogramPipeline:
         self.spec_type = spec_type
         self.step = step
         self.validation_probability = validation_probability
+        self.bath_size = batch_size
 
         try:
             self.song_tags = read_json_to_dict(labels_path)
@@ -85,7 +88,7 @@ class SpectogramPipeline:
             Exception: If any of the configuration parameters are not set.
         """
         if not all(
-                [self.n_mels, self.n_seconds, self.spec_type, self.song_tags, self.step]) or \
+                [self.n_mels, self.n_seconds, self.spec_type, self.song_tags, self.step, self.bath_size]) or \
                 self.validation_probability is None:
             raise Exception('SpectrogramPipeline._config_is_set(): Pipeline config must be set before usage.')
 
@@ -220,19 +223,27 @@ class SpectogramPipeline:
         """
         return self.song_tags[song_title]
 
-    def make_dataset_ready_data(self, set_num: int) -> None:
+    def make_dataset_ready_data(self) -> None:
         """
         Processes all the downloaded songs to be ready to pass into torch Dataset.
-        Saves tensors containing training and validation data to `DATA_DIR`.
-
-        Returns:
-            None
+        Saves batches as tensors to respective folders in `DATA_DIR`.
         """
+        self._check_if_config_is_set()
+
+        last_training_batch_idx = SpectogramPipeline.get_last_batch_index(set_label='train')
+        last_valid_batch_idx = SpectogramPipeline.get_last_batch_index(set_label='valid')
         train_data, valid_data = self.get_data_from_songs()
+
+        # training data
         X_train, Y_train = SpectogramPipeline._prepare_for_dataset(train_data, shuffle=True)
-        self._save_data(X_train, Y_train, set_label='train', set_num=set_num)
+        self.batch_and_store_data(X_train, Y_train, batch_size=self.batch_size,
+                                  set_label='train', last_batch_idx=last_training_batch_idx)
+
+        # validation data
         X_valid, Y_valid = SpectogramPipeline._prepare_for_dataset(valid_data, shuffle=True)
-        self._save_data(X_valid, Y_valid, set_label='valid', set_num=set_num)
+        self.batch_and_store_data(X_valid, Y_valid, batch_size=self.batch_size,
+                                  set_label='valid', last_batch_idx=last_valid_batch_idx)
+
         self.save_config(os.path.join(DATA_DIR, 'pipeline_config.json'))
 
     def save_config(self, path: str) -> ConfigType:
@@ -255,6 +266,7 @@ class SpectogramPipeline:
             'n_seconds': self.n_seconds,
             'step': self.step,
             'validation_probability': self.validation_probability,
+            'batch_size': self.bath_size,
             'spec_type': self.spec_type
         }
 
@@ -264,12 +276,61 @@ class SpectogramPipeline:
         return cfg_dct
 
     @staticmethod
-    def _save_data(X: torch.Tensor, Y: torch.Tensor, set_label: Literal['train', 'valid'], set_num: int):
+    def get_last_batch_index(set_label: Literal['train', 'valid']):
+        """
+        Args:
+            set_label (Literal['train', 'valid']): Whether to return last batch index of training or validation set.
+        """
+        items = os.listdir(os.path.join(DATA_DIR, set_label))
+        sorted_items = sorted(items)
+        if len(sorted_items):
+            last = sorted_items[-1]
+            underscore_idx = last.index("_")
+            dot_idx = last.index(".")
+            return int(last[underscore_idx+1:dot_idx])
+        else:
+            print("SpectogramPipeline.get_last_batch_index: There is not a single batch in the directory.")
+            return -1
+
+    @staticmethod
+    def _save_batch(X: torch.Tensor, Y: torch.Tensor, set_label: Literal['train', 'valid'], batch_index: int):
+        """
+        Utility for saving batch of data.
+
+        Args:
+            X (torch.Tensor): Input tensor containing the feature data.
+            Y (torch.Tensor): Target tensor containing the labels.
+            set_label (Literal['train', 'valid']): Whether batch belongs to training or validation set.
+            batch_index (int): Number used for ordering or identifying batches.
+        """
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)
-        torch.save(X, os.path.join(DATA_DIR, f'X_{set_num}_{set_label}.pt'))
-        torch.save(Y, os.path.join(DATA_DIR, f'Y_{set_num}_{set_label}.pt'))
-        print(f"dataset saved to {DATA_DIR}")
+        torch.save(X, os.path.join(DATA_DIR, set_label, f'X_{batch_index}.pt'))
+        torch.save(Y, os.path.join(DATA_DIR, set_label, f'Y_{batch_index}.pt'))
+
+    @staticmethod
+    def batch_and_store_data(X: torch.Tensor, Y: torch.Tensor, batch_size: int,
+                             set_label: Literal['train', 'valid'], last_batch_idx):
+        """
+        Args:
+            X (torch.Tensor): Input tensor containing the feature data.
+            Y (torch.Tensor): Target tensor containing the labels.
+            batch_size (int): Number of samples per batch.
+            set_label (Literal['train', 'valid']): Specifies whether the data belongs to the training or validation set.
+            last_batch_idx: Index of the last batch that is currently stored in the respective data folder.
+        """
+        for batch_num in range(len(X) // batch_size):
+            X_batch = X[batch_size * batch_num:batch_size * (batch_num + 1)].clone()
+            Y_batch = Y[batch_size * batch_num:batch_size * (batch_num + 1)].clone()
+            SpectogramPipeline._save_batch(X_batch, Y_batch,
+                                           set_label=set_label,
+                                           batch_index=batch_num + last_batch_idx+1)
+        leftover_begin_idx = batch_size * (len(X) // batch_size)
+        X_batch = X[leftover_begin_idx:].clone()
+        Y_batch = Y[leftover_begin_idx:].clone()
+        SpectogramPipeline._save_batch(X_batch, Y_batch,
+                                       set_label=set_label,
+                                       batch_index=len(X) // batch_size)
 
     @staticmethod
     def get_broken():
@@ -305,43 +366,23 @@ class SpectogramPipeline:
         titles, X, Y = zipped[0], zipped[1], zipped[2]
         X = (np.stack(X, dtype=np.float16) + 80.) / 80.
         Y = np.stack(Y, dtype=np.float16)
-        return list(titles), torch.from_numpy(X), torch.from_numpy(Y) if return_titles else (
+        return (list(titles), torch.from_numpy(X), torch.from_numpy(Y)) if return_titles else (
                 torch.from_numpy(X), torch.from_numpy(Y))
 
 
 if __name__ == "__main__":
     # Run below snippet to prepare data after scraping it
-    ppl = SpectogramPipeline(os.path.join(SONGS_DIR, 'music1'))
     tp = TagProcessor()
     tp.multi_hot_tags_of_all_songs()
-    ppl.set_config(
-        n_mels=N_MELS,
-        n_seconds=N_SECONDS,
-        spec_type=SPEC_TYPE,
-        step=STEP,
-        validation_probability=0.08,
-        labels_path=os.path.join(LABELS_DIR, 'labels.json')
-    )
-    ppl.make_dataset_ready_data(set_num=1)
-
-    ppl = SpectogramPipeline(os.path.join(SONGS_DIR, 'music2'))
-    ppl.set_config(
-        n_mels=N_MELS,
-        n_seconds=N_SECONDS,
-        spec_type=SPEC_TYPE,
-        step=STEP,
-        validation_probability=0.08,
-        labels_path=os.path.join(LABELS_DIR, 'labels.json')
-    )
-    ppl.make_dataset_ready_data(set_num=2)
-
-    ppl = SpectogramPipeline(os.path.join(SONGS_DIR, 'music3'))
-    ppl.set_config(
-        n_mels=N_MELS,
-        n_seconds=N_SECONDS,
-        spec_type=SPEC_TYPE,
-        step=STEP,
-        validation_probability=0.08,
-        labels_path=os.path.join(LABELS_DIR, 'labels.json')
-    )
-    ppl.make_dataset_ready_data(set_num=3)
+    for i in range(1, 3+1):
+        ppl = SpectogramPipeline(os.path.join(SONGS_DIR, f'music{i}'))
+        ppl.set_config(
+            n_mels=N_MELS,
+            n_seconds=N_SECONDS,
+            spec_type=SPEC_TYPE,
+            step=STEP,
+            validation_probability=0.08,
+            batch_size=BATCH_SIZE,
+            labels_path=os.path.join(LABELS_DIR, 'labels.json')
+        )
+        ppl.make_dataset_ready_data()

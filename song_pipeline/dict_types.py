@@ -24,6 +24,7 @@ class ConfigType(TypedDict):
         step (int | float): Defines the interval (in seconds) at which consecutive fragments start within the audio.
         validation_probability (float): Defines a chance of fragment being added to a validation set;
                         fragment gets to a training set with a chance equal to 1-validation_probability.
+        batch_size (int): Batch size.
         spec_type (Literal['mel', 'std']): The type of spectrogram being used.
                 - `'mel'`: Mel spectrogram.
                 - `'std'`: Standard spectrogram.
@@ -32,6 +33,7 @@ class ConfigType(TypedDict):
     n_seconds: int
     step: int | float
     validation_probability: float
+    batch_size: int
     spec_type: Literal['mel', 'std']
 
 
