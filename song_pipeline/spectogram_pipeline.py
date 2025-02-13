@@ -1,10 +1,10 @@
 import torch
+from song_pipeline.tag_processor import TagProcessor
 from song_pipeline.feature_extractor import FeatureExtractor
-from song_pipeline.constants import N_MELS, N_SECONDS, STEP, SPEC_TYPE, PROJECT_FOLDER_DIR, \
-    TAGS_DIR, LABELS_DIR, SONGS_DIR, DATA_DIR
+from song_pipeline.constants import PROJECT_FOLDER_DIR, SONGS_DIR, DATA_DIR, \
+    N_MELS, LABELS_DIR, N_SECONDS, SPEC_TYPE, STEP
 from song_pipeline.dict_types import ConfigType, SongSpecDataType
-from song_pipeline.utils import write_dict_to_json, read_json_to_dict, get_all_tags, \
-    multi_hot_batch, tags_to_tags_indexes, save_multi_hotted_labels, prepare_for_dataset
+from song_pipeline.utils import write_dict_to_json, read_json_to_dict
 from typing import Literal
 import numpy as np
 import os
@@ -129,7 +129,7 @@ class SpectogramPipeline:
             step=self.step
         )
 
-        if train_fragments is None or validation_fragments is None or sample_rate is None:
+        if not all([train_fragments, validation_fragments, sample_rate]):
             return None, None
         training_specs = self.retrieve_specs_fn[self.spec_type](train_fragments, sr=sample_rate, n_mels=self.n_mels)
         validation_specs = self.retrieve_specs_fn[self.spec_type](
@@ -229,19 +229,11 @@ class SpectogramPipeline:
             None
         """
         train_data, valid_data = self.get_data_from_songs()
-        X_train, Y_train = prepare_for_dataset(train_data, shuffle=True)
+        X_train, Y_train = SpectogramPipeline._prepare_for_dataset(train_data, shuffle=True)
         self._save_data(X_train, Y_train, set_label='train', set_num=set_num)
-        X_valid, Y_valid = prepare_for_dataset(valid_data, shuffle=True)
+        X_valid, Y_valid = SpectogramPipeline._prepare_for_dataset(valid_data, shuffle=True)
         self._save_data(X_valid, Y_valid, set_label='valid', set_num=set_num)
         self.save_config(os.path.join(DATA_DIR, 'pipeline_config.json'))
-
-    @staticmethod
-    def _save_data(X: torch.Tensor, Y: torch.Tensor, set_label: Literal['train', 'valid'], set_num: int):
-        if not os.path.exists(DATA_DIR):
-            os.makedirs(DATA_DIR)
-        torch.save(X, os.path.join(DATA_DIR, f'X_{set_num}_{set_label}.pt'))
-        torch.save(Y, os.path.join(DATA_DIR, f'Y_{set_num}_{set_label}.pt'))
-        print(f"dataset saved to {DATA_DIR}")
 
     def save_config(self, path: str) -> ConfigType:
         """
@@ -267,9 +259,17 @@ class SpectogramPipeline:
         }
 
         write_dict_to_json(cfg_dct, path)
-        print(f"SpectogramPipeline config was saved to{path}")
+        print(f"SpectogramPipeline config was saved to {path}")
 
         return cfg_dct
+
+    @staticmethod
+    def _save_data(X: torch.Tensor, Y: torch.Tensor, set_label: Literal['train', 'valid'], set_num: int):
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+        torch.save(X, os.path.join(DATA_DIR, f'X_{set_num}_{set_label}.pt'))
+        torch.save(Y, os.path.join(DATA_DIR, f'Y_{set_num}_{set_label}.pt'))
+        print(f"dataset saved to {DATA_DIR}")
 
     @staticmethod
     def get_broken():
@@ -279,44 +279,41 @@ class SpectogramPipeline:
         write_dict_to_json(broken_dct, os.path.join(DATA_DIR, 'broken_songs.json'))
 
     @staticmethod
-    def multi_hot_tags_of_all_songs():
+    def _prepare_for_dataset(data: list[tuple[str, np.ndarray, list[int]]],
+                             shuffle: bool = False, return_titles: bool = False):
         """
-        Encodes the tags of all songs in a `TAGS_DIR` directory into multi-hot format,
-        saves the resulting data and labels mapping to `LABELS_DIR`.
-        """
-        all_tags = get_all_tags(TAGS_DIR)
-        song_titles = []
-        song_tags_str = []
-        for song in os.listdir(TAGS_DIR):
-            current_song_tags_str = []
-            song_title = song[:-5]
-            tag_dct = read_json_to_dict(os.path.join(TAGS_DIR, song))
-            for tag in tag_dct["genres"]:
-                if tag == 'Dance-Pop':
-                    current_song_tags_str.append('Dance Pop')
-                elif ', ' in tag:
-                    for nested_t in tag.split(', '):
-                        current_song_tags_str.append(nested_t)
-                else:
-                    current_song_tags_str.append(tag)
-            for tag in tag_dct["mood"]:
-                current_song_tags_str.append(tag)
-            song_titles.append(song_title)
-            song_tags_str.append(current_song_tags_str)
+       Prepares data for use in a PyTorch Dataset **(including normalizing values to [0,1] range)**.
 
-        song_tags_indexes = tags_to_tags_indexes(song_tags_str, all_tags)
-        multi_hotted = multi_hot_batch(song_tags_indexes, len(all_tags))
-        save_multi_hotted_labels(song_titles, multi_hotted, os.path.join(LABELS_DIR, 'labels.json'))
-        write_dict_to_json(
-            data={i: tag for i, tag in enumerate(all_tags)},
-            file_path=os.path.join(LABELS_DIR, 'mapping.json')
-        )
+       Args:
+           data (list[Tuple[str, np.ndarray, list[int]]]): A list of tuples containing:
+               - Song title (str)
+               - Spectrogram as a NumPy array (np.ndarray)
+               - Labels as a list of integers (list[int])
+           shuffle (bool): Whether to shuffle the data. Defaults to False.
+           return_titles (bool): Whether to return titles of songs in dataset.
+
+       Returns:
+           Depending on ``return_titles`:
+                - If `return_titles=True`:
+                    Tuple[list[str], torch.Tensor, torch.Tensor]: Titles, Features (X) and labels (Y) as PyTorch tensors.
+                - If `return_titles=False`:
+                    Tuple[torch.Tensor, torch.Tensor]: Features (X) and labels (Y) as PyTorch tensors.
+        """
+        if shuffle:
+            np.random.shuffle(data)
+        zipped = list(zip(*data))
+        titles, X, Y = zipped[0], zipped[1], zipped[2]
+        X = (np.stack(X, dtype=np.float16) + 80.) / 80.
+        Y = np.stack(Y, dtype=np.float16)
+        return list(titles), torch.from_numpy(X), torch.from_numpy(Y) if return_titles else (
+                torch.from_numpy(X), torch.from_numpy(Y))
 
 
 if __name__ == "__main__":
     # Run below snippet to prepare data after scraping it
     ppl = SpectogramPipeline(os.path.join(SONGS_DIR, 'music1'))
-    ppl.multi_hot_tags_of_all_songs()
+    tp = TagProcessor()
+    tp.multi_hot_tags_of_all_songs()
     ppl.set_config(
         n_mels=N_MELS,
         n_seconds=N_SECONDS,
