@@ -2,16 +2,16 @@ from prototyping.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
 from prototyping.assemblies.cnn_dense_assembly import CnnDenseAssembly
 from prototyping.assemblies.rnn_dense_assembly import RnnDenseAssembly
 
-from model_components.temporal_compressor.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
-from model_components.temporal_compressor.conv1d_block_no_dilation_with_skip import Conv1DBlockNoDilationWithSkip
-from model_components.temporal_compressor.conv1d_block_with_dilation_no_skip import Conv1DBlockWithDilationNoSkip
-from model_components.temporal_compressor.conv1d_block_with_dilation_with_skip import Conv1DBlockWithDilationWithSkip
+from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
+from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_with_skip import Conv1DBlockNoDilationWithSkip
+from model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_no_skip import Conv1DBlockWithDilationNoSkip
+from model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_with_skip import Conv1DBlockWithDilationWithSkip
 
 import os
 import torch
 from google.cloud import storage
 import json
-from song_pipeline.constants import PROJECT_FOLDER_DIR
+from workflow_actions.prepare_dataset.source.constants import PROJECT_FOLDER_DIR
 from io import BytesIO
 
 
@@ -308,7 +308,6 @@ def get_ready_model_from_gcs_checkpoint(bucket_name, folder_name, checkpoint_nam
 
 
 if __name__ == "__main__":
-    from song_pipeline.constants import DATA_DIR
     get_ready_model_from_gcs_checkpoint(
         bucket_name="models_training_ckpt",
         folder_name="test_cloud_2",

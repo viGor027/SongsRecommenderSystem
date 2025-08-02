@@ -1,7 +1,8 @@
 import torch
-from song_pipeline.spectogram_pipeline import SpectogramPipeline
-from song_pipeline.constants import PROJECT_FOLDER_DIR, SPACE_DIR, LABELS_DIR, SONGS_DIR, SPEC_TYPE, N_MELS, N_SECONDS, STEP
-from song_pipeline.utils import prepare_for_dataset, read_json_to_dict, write_dict_to_json
+from workflow_actions.prepare_dataset.source.spectogram_pipeline import SpectogramPipeline
+from workflow_actions.prepare_dataset.source.constants import SPACE_DIR, LABELS_DIR, SONGS_DIR, SPEC_TYPE, N_MELS, N_SECONDS, STEP
+from workflow_actions.prepare_dataset.source.utils import prepare_for_dataset
+from workflow_actions.json_handlers import read_json_to_dict, write_dict_to_json
 from cloud.cloud_utils import get_ready_model_from_gcs_checkpoint
 import os
 

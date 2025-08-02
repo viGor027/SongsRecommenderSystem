@@ -1,23 +1,15 @@
-import os.path
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
-from model_components.temporal_compressor.conv1d_block_with_dilation_with_skip import Conv1DBlockWithDilationWithSkip
-from model_components.temporal_compressor.conv1d_block_with_dilation_no_skip import Conv1DBlockWithDilationNoSkip
-from model_components.temporal_compressor.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
-from model_components.temporal_compressor.conv1d_block_no_dilation_with_skip import Conv1DBlockNoDilationWithSkip
+from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
 
-from prototyping.assemblies.cnn_dense_assembly import CnnDenseAssembly
 from prototyping.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
-from prototyping.assemblies.rnn_dense_assembly import RnnDenseAssembly
 
 from prototyping.trainer_module import TrainerModule
 import lightning as L
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from prototyping.checkpoint_callback import GCSModelCheckpoint
-from cloud.cloud_utils import save_dict_to_gcs_as_json, load_tensor_from_gcs, get_ready_model_from_gcs_checkpoint, \
-    read_json_from_gcs_to_dict
-from song_pipeline.constants import DATA_DIR
+from cloud.cloud_utils import save_dict_to_gcs_as_json, load_tensor_from_gcs, read_json_from_gcs_to_dict
 
 model_id_str = 'model_'
 data_version_str = 'data_4'

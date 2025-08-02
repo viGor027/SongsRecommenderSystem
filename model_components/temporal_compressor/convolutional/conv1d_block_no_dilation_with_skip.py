@@ -1,14 +1,13 @@
-import torch
 from torch import nn
-from model_components.temporal_compressor.conv1d_block_with_dilation_no_skip import Conv1DBlockWithDilationNoSkip
+from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
 from typing import Literal
 
 
-class Conv1DBlockWithDilationWithSkip(nn.Module):
+class Conv1DBlockNoDilationWithSkip(nn.Module):
     """
-    A convolutional block that processes 1D inputs incorporating dilation and skip connection.
+    A convolutional block that processes 1D inputs without dilation, incorporating skip connection.
 
-    This block combines the output of a convolutional block (`Conv1DBlockWithDilationNoSkip`) with a halved version
+    This block combines the output of a convolutional block (`Conv1DBlockNoDilationNoSkip`) with a halved version
     of its input. The halving is achieved using a convolutional layer with `stride=2` and `kernel_size=2`.
 
     This class is implemented with causal padding(look at Conv1DBaseBlock implementation for further explanation).
@@ -38,7 +37,7 @@ class Conv1DBlockWithDilationWithSkip(nn.Module):
             out_channels=n_filters_skip,
             kernel_size=2, stride=2, dtype=torch.float32)
 
-        self.block = Conv1DBlockWithDilationNoSkip(
+        self.block = Conv1DBlockNoDilationNoSkip(
             block_num=block_num, input_len=input_len,
             n_input_channels=n_input_channels,
             n_layers=n_layers, n_filters_per_layer=n_filters_per_layer,
@@ -76,11 +75,11 @@ if __name__ == "__main__":
 
     sample = torch.randn((4, sample_channels, sample_len))
 
-    model = Conv1DBlockWithDilationWithSkip(block_num=1, input_len=sample_len,
-                                            n_input_channels=sample_channels, kernel_size=2, stride=1,
-                                            n_filters_per_layer=64,
-                                            n_filters_skip=16,
-                                            n_layers=2, reduction_strat='conv')
+    model = Conv1DBlockNoDilationWithSkip(block_num=1, input_len=sample_len,
+                                          n_input_channels=sample_channels, kernel_size=2, stride=1,
+                                          n_filters_per_layer=64,
+                                          n_filters_skip=16,
+                                          n_layers=2, reduction_strat='conv')
     sample = model.debug_forward(sample)
     print("Shape after: ", sample.shape)
     print("Resulting tensor: ")

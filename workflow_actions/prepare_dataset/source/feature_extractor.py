@@ -4,7 +4,7 @@ import librosa
 import librosa.display
 import librosa.feature
 from collections.abc import Iterable
-from song_pipeline.dict_types import MelSpecKwargsType
+from workflow_actions.prepare_dataset.source.dict_types import MelSpecKwargsType
 
 
 class FeatureExtractor:

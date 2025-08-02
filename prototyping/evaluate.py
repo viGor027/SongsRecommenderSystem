@@ -2,8 +2,8 @@ import os
 import torch
 from torcheval.metrics import MultilabelAccuracy
 from torch.nn import BCELoss
-from song_pipeline.constants import DATA_DIR
-from song_pipeline.utils import write_dict_to_json
+from workflow_actions.prepare_dataset.source.constants import DATA_DIR
+from workflow_actions.json_handlers import write_dict_to_json
 import pandas as pd
 
 

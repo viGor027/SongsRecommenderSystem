@@ -1,11 +1,11 @@
 from torch import nn
-from model_components.temporal_compressor.conv1d_base_block import Conv1DBaseBlock
+from model_components.temporal_compressor.convolutional.conv1d_base_block import Conv1DBaseBlock
 from typing import Literal
 
 
-class Conv1DBlockWithDilationNoSkip(nn.Module):
+class Conv1DBlockNoDilationNoSkip(nn.Module):
     """
-    A convolutional block that processes 1D inputs without skip connections, incorporating dilation.
+    A convolutional block that processes 1D inputs without dilation or skip connections.
 
     This class is implemented with causal padding(look at Conv1DBaseBlock implementation for further explanation).
 
@@ -31,7 +31,7 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
             block_num=block_num, input_len=input_len,
             n_input_channels=n_input_channels, n_layers=n_layers,
             n_filters_per_layer=n_filters_per_layer, kernel_size=kernel_size,
-            stride=stride, dilation=True, reduction_strat=reduction_strat
+            stride=stride, dilation=False, reduction_strat=reduction_strat
         )
 
     def forward(self, x):
@@ -56,11 +56,11 @@ if __name__ == "__main__":
 
     sample = torch.randn((4, sample_channels, sample_len))
 
-    model = Conv1DBlockWithDilationNoSkip(block_num=1, input_len=sample_len,
-                                          n_input_channels=sample_channels, kernel_size=2, stride=1,
-                                          n_filters_per_layer=64,
-                                          n_filters_skip=16,
-                                          n_layers=2, reduction_strat='conv')
+    model = Conv1DBlockNoDilationNoSkip(block_num=1, input_len=sample_len,
+                                        n_input_channels=sample_channels, kernel_size=2, stride=1,
+                                        n_filters_per_layer=64,
+                                        n_filters_skip=16,
+                                        n_layers=2, reduction_strat='conv')
     sample = model.debug_forward(sample)
     print("Shape after: ", sample.shape)
     print("Resulting tensor: ")

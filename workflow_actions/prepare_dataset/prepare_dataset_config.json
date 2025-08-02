@@ -1,0 +1,24 @@
+{
+  "raw_augment": {
+    "augmentations": [
+      {
+        "name": "AddGaussianNoise",
+        "params": {
+          "min_amplitude": 0.001,
+          "max_amplitude": 0.015,
+          "p": 0.1
+        }
+      },
+      {
+        "name": "Mp3Compression",
+        "params": {
+          "min_bitrate": 16,
+          "max_bitrate": 96,
+          "backend": "fast-mp3-augment",
+          "preserve_delay": false,
+          "p": 0.9
+        }
+      }
+    ]
+  }
+}

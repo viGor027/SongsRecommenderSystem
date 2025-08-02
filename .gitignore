@@ -172,5 +172,11 @@ sandbox.py
 
 
 key.json
-
+data/
 lightning_logs/
+
+.ruff_cache
+
+raw_augmentations_overview
+notatki_spotkania
+notatka
