@@ -1,5 +1,6 @@
 {
   "raw_augment": {
+    "log_path": null,
     "augmentations": [
       {
         "name": "AddGaussianNoise",
@@ -20,5 +21,37 @@
         }
       }
     ]
+  },
+  "spectrogram_augment": {
+      "log_path": null,
+      "augmentations": [
+        {
+          "name": "TimeMasking",
+          "params": {
+            "time_mask_param": 80,
+            "iid_masks": false,
+            "p": 0.35
+          }
+        },
+        {
+          "name": "FrequencyMasking",
+          "params": {
+            "freq_mask_param": 30,
+            "iid_masks": false
+          }
+        }
+      ]
+    },
+  "chunker": {
+    "song_type": "numpy",
+    "sample_rate": 22050,
+    "validation_probability": 0.08,
+    "n_seconds": 5,
+    "step": 1
+  },
+  "spectrogram_extractor": {
+    "extraction_method":"mel",
+    "sample_rate": 22050,
+    "n_mels": 80
   }
 }
