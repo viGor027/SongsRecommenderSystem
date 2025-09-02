@@ -7,8 +7,15 @@ class BaseClassifier(nn.Module):
     """
     A base classifier designed primarily for testing and training other modules.
     """
-    def __init__(self, n_layers: int, n_input_features: int,
-                 units_per_layer: list[int], n_classes: int, sigmoid_output: bool = True):
+
+    def __init__(
+        self,
+        n_layers: int,
+        n_input_features: int,
+        units_per_layer: list[int],
+        n_classes: int,
+        sigmoid_output: bool = True,
+    ):
         """
         - n_layers (int): The number of layers in the model.
           This does not include the final layer, which outputs the probabilities for the classes.
@@ -32,40 +39,44 @@ class BaseClassifier(nn.Module):
         layers = []
 
         for i in range(self.n_layers):
-            in_features = self.n_input_features if i == 0 else self.units_per_layer[i-1]
-            layers.append(
-                (f"dense_layer_{i}",
-                 nn.Linear(
-                     in_features=in_features,
-                     out_features=self.units_per_layer[i],
-                     dtype=torch.float32
-                 )
-                 )
+            in_features = (
+                self.n_input_features if i == 0 else self.units_per_layer[i - 1]
             )
-            layers.append((f"batch_norm_classifier_{i}", nn.BatchNorm1d(self.units_per_layer[i])))
             layers.append(
-                (f"classifier_activation_{i}", nn.ReLU())
+                (
+                    f"dense_layer_{i}",
+                    nn.Linear(
+                        in_features=in_features,
+                        out_features=self.units_per_layer[i],
+                        dtype=torch.float32,
+                    ),
+                )
             )
+            layers.append(
+                (f"batch_norm_classifier_{i}", nn.BatchNorm1d(self.units_per_layer[i]))
+            )
+            layers.append((f"classifier_activation_{i}", nn.ReLU()))
 
-        in_features = self.n_input_features if self.n_layers == 0 else self.units_per_layer[self.n_layers - 1]
+        in_features = (
+            self.n_input_features
+            if self.n_layers == 0
+            else self.units_per_layer[self.n_layers - 1]
+        )
         layers.append(
-            ("dense_classifier",
-             nn.Linear(in_features=in_features,
-                       out_features=self.n_classes,
-                       dtype=torch.float32)
-             )
+            (
+                "dense_classifier",
+                nn.Linear(
+                    in_features=in_features,
+                    out_features=self.n_classes,
+                    dtype=torch.float32,
+                ),
+            )
         )
         layers.append(("batch_norm_classifier_end", nn.BatchNorm1d(self.n_classes)))
         if self.sigmoid_output:
-            layers.append(
-                ("classifier_end_activation", nn.Sigmoid())
-            )
+            layers.append(("classifier_end_activation", nn.Sigmoid()))
 
-        return nn.Sequential(
-            OrderedDict(
-                layers
-            )
-        )
+        return nn.Sequential(OrderedDict(layers))
 
     def forward(self, x):
         """Note: PyTorch forward method expects the input to be a batch of samples, even if the batch size is 1."""
@@ -74,14 +85,14 @@ class BaseClassifier(nn.Module):
     def debug_forward(self, x):
         for name, layer in self.block.named_children():
             print("Name: ", name, " Layer: ", layer)
-            print(f'Contains NaNs before layer: {torch.isnan(x).any()}')
+            print(f"Contains NaNs before layer: {torch.isnan(x).any()}")
             # if 'batch' not in name and 'activation' not in name:
             #     print("Layer params:")
             #     print(layer.weight)
             #     print(layer.bias)
             x = layer(x)
-            print(f'Output shape {x.shape}')
-            print(f'Contains NaNs after layer: {torch.isnan(x).any()}')
+            print(f"Output shape {x.shape}")
+            print(f"Contains NaNs after layer: {torch.isnan(x).any()}")
             print()
         return x
 
@@ -97,11 +108,11 @@ if __name__ == "__main__":
         n_layers=0,
         n_input_features=n_input_features,
         units_per_layer=[],
-        n_classes=n_classes
+        n_classes=n_classes,
     )
 
     # batch of 4 samples with `n_input_features` per sample
     dummy_input = torch.randn(4, n_input_features, dtype=torch.float32)
 
-    #output = model(dummy_input)
+    # output = model(dummy_input)
     output = model.debug_forward(dummy_input)

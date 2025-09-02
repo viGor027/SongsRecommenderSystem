@@ -27,12 +27,14 @@ class NCSScraper:
         self.pages = pages
         self.session = requests.Session()
         # pretend to be a real browser
-        self.session.headers.update({
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:114.0) "
-                "Gecko/20100101 Firefox/114.0"
-            )
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:114.0) "
+                    "Gecko/20100101 Firefox/114.0"
+                )
+            }
+        )
         self.labels: Dict[str, List[str]] = {}
 
         # ensure raw dirs exist and are empty
@@ -51,7 +53,7 @@ class NCSScraper:
         Replace any character except alphanumerics, commas and hyphens with underscore.
         This preserves the "autor1,autor2-tytuł" format while cleaning unsafe chars.
         """
-        return re.sub(r'[^0-9A-Za-z,\-]+', '_', title).strip('_')
+        return re.sub(r"[^0-9A-Za-z,\-]+", "_", title).strip("_")
 
     def fetch_page(self, page: int) -> Optional[BeautifulSoup]:
         """GET a search‐results page and return its BeautifulSoup, or None on error."""
@@ -80,7 +82,7 @@ class NCSScraper:
 
         for play_btn in soup.select("a.player-play"):
             track = play_btn.get("data-track", "").strip()
-            url   = play_btn.get("data-url", "").strip()
+            url = play_btn.get("data-url", "").strip()
             raw_genre = play_btn.get("data-genre", "")
             raw_artists = play_btn.get("data-artistraw", "").strip()
 
@@ -96,7 +98,11 @@ class NCSScraper:
             mood_cell = row.find("td", attrs={"style": re.compile(r"width\s*:\s*15%")})
             if mood_cell:
                 links = mood_cell.find_all("a", href=True)
-                moods = [m.get_text(strip=True) for m in links[1:]] if len(links) > 1 else []
+                moods = (
+                    [m.get_text(strip=True) for m in links[1:]]
+                    if len(links) > 1
+                    else []
+                )
             else:
                 moods = []
 
@@ -112,13 +118,15 @@ class NCSScraper:
             # sanitize to safe_title
             safe_title = self.sanitize_title(combined)
 
-            entries.append({
-                "title": display_title,
-                "safe_title": safe_title,
-                "genres": genres,
-                "moods": moods,
-                "url": url
-            })
+            entries.append(
+                {
+                    "title": display_title,
+                    "safe_title": safe_title,
+                    "genres": genres,
+                    "moods": moods,
+                    "url": url,
+                }
+            )
 
         return entries
 
@@ -130,7 +138,7 @@ class NCSScraper:
         try:
             resp = self.session.get(entry["url"], timeout=20)
             resp.raise_for_status()
-            ext = entry["url"].split('.')[-1].split('?')[0]
+            ext = entry["url"].split(".")[-1].split("?")[0]
             fname = f"{entry['safe_title']}.{ext}"
             (DOWNLOAD_DIR / fname).write_bytes(resp.content)
             return fname

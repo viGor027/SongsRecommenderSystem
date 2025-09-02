@@ -14,7 +14,7 @@ class CnnDenseAssembly(nn.Module):
         model.init_seq_encoder(...)
         model.init_classifier(...)
      '''
-   """
+    """
 
     def __init__(self):
         """All the below attributes are set during initialization mentioned in class docstring."""
@@ -42,12 +42,17 @@ class CnnDenseAssembly(nn.Module):
         self.seq_encoder = None
         self.classifier = None
 
-    def init_conv(self, ConvCls, n_blocks: int,
-                  n_layers_per_block: list[int],
-                  n_filters_per_block: list[int],
-                  n_filters_per_skip: list[int],
-                  input_len: int, n_input_channels: int,
-                  reduction_strat: Literal['conv', 'max_pool', 'avg_pool'] = 'conv'):
+    def init_conv(
+        self,
+        ConvCls,
+        n_blocks: int,
+        n_layers_per_block: list[int],
+        n_filters_per_block: list[int],
+        n_filters_per_skip: list[int],
+        input_len: int,
+        n_input_channels: int,
+        reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
+    ):
         """
         Args:
            ConvCls (nn.Module): Convolutional block class used for feature extraction.
@@ -77,37 +82,48 @@ class CnnDenseAssembly(nn.Module):
             nn.Sequential: Sequential container of convolutional blocks.
         """
         blocks = [
-            self.ConvCls(block_num=0,
-                         input_len=self.input_len,
-                         n_input_channels=self.n_input_channels,
-                         n_layers=self.n_layers_per_block[0],
-                         n_filters_per_layer=self.n_filters_per_block[0],
-                         n_filters_skip=self.n_filters_per_skip[0],
-                         reduction_strat=self.reduction_strat,
-                         kernel_size=2, stride=1)
+            self.ConvCls(
+                block_num=0,
+                input_len=self.input_len,
+                n_input_channels=self.n_input_channels,
+                n_layers=self.n_layers_per_block[0],
+                n_filters_per_layer=self.n_filters_per_block[0],
+                n_filters_skip=self.n_filters_per_skip[0],
+                reduction_strat=self.reduction_strat,
+                kernel_size=2,
+                stride=1,
+            )
         ]
         inp_len = self.input_len // 2
         for i in range(self.n_blocks - 1):
             blocks.append(
-                self.ConvCls(block_num=i + 1,
-                             input_len=inp_len,
-                             n_input_channels=self.n_filters_per_skip[i] + self.n_filters_per_block[i],
-                             n_layers=self.n_layers_per_block[i + 1],
-                             n_filters_per_layer=self.n_filters_per_block[i + 1],
-                             n_filters_skip=self.n_filters_per_skip[i + 1],
-                             reduction_strat=self.reduction_strat,
-                             kernel_size=2, stride=1)
+                self.ConvCls(
+                    block_num=i + 1,
+                    input_len=inp_len,
+                    n_input_channels=self.n_filters_per_skip[i]
+                    + self.n_filters_per_block[i],
+                    n_layers=self.n_layers_per_block[i + 1],
+                    n_filters_per_layer=self.n_filters_per_block[i + 1],
+                    n_filters_skip=self.n_filters_per_skip[i + 1],
+                    reduction_strat=self.reduction_strat,
+                    kernel_size=2,
+                    stride=1,
+                )
             )
             inp_len = inp_len // 2
         self.seq_encoder_input_features = inp_len * (
-                self.n_filters_per_block[self.n_blocks - 1] + self.n_filters_per_skip[self.n_blocks - 1]
+            self.n_filters_per_block[self.n_blocks - 1]
+            + self.n_filters_per_skip[self.n_blocks - 1]
         )
 
         return nn.Sequential(*blocks)
 
-    def init_seq_encoder(self, n_seq_encoder_layers: int,
-                         n_units_per_seq_encoder_layer: list[int],
-                         n_embedding_dims: int):
+    def init_seq_encoder(
+        self,
+        n_seq_encoder_layers: int,
+        n_units_per_seq_encoder_layer: list[int],
+        n_embedding_dims: int,
+    ):
         """
         Initializes the sequence encoder with the specified parameters.
 
@@ -133,13 +149,16 @@ class CnnDenseAssembly(nn.Module):
             n_input_features=self.seq_encoder_input_features,
             units_per_layer=self.n_units_per_seq_encoder_layer,
             n_classes=self.n_embedding_dims,
-            sigmoid_output=False
+            sigmoid_output=False,
         )
         return seq_encoder
 
-    def init_classifier(self, n_classifier_layers: int,
-                        n_units_per_classifier_layer: list[int],
-                        n_classes: int):
+    def init_classifier(
+        self,
+        n_classifier_layers: int,
+        n_units_per_classifier_layer: list[int],
+        n_classes: int,
+    ):
         """
         Args:
             n_classifier_layers (int): Number of layers in the classifier.
@@ -162,7 +181,7 @@ class CnnDenseAssembly(nn.Module):
             n_layers=self.n_classifier_layers,
             n_input_features=self.n_embedding_dims,
             units_per_layer=self.n_units_per_classifier_layer,
-            n_classes=self.n_classes
+            n_classes=self.n_classes,
         )
         return classifier
 
@@ -181,9 +200,9 @@ class CnnDenseAssembly(nn.Module):
             dict: A dictionary containing the model's configuration.
         """
         return {
-            'class_name': self.__class__.__name__,
-            'temporal_compressor': {
-                "ConvCls": str(self.ConvCls).split('.')[-1][:-2],
+            "class_name": self.__class__.__name__,
+            "temporal_compressor": {
+                "ConvCls": str(self.ConvCls).split(".")[-1][:-2],
                 "input_len": self.input_len,
                 "n_input_channels": self.n_input_channels,
                 "n_blocks": self.n_blocks,
@@ -192,14 +211,14 @@ class CnnDenseAssembly(nn.Module):
                 "n_filters_per_skip": self.n_filters_per_skip,
                 "reduction_strat": self.reduction_strat,
             },
-            'sequence_encoder': {
-                'n_seq_encoder_layers': self.n_seq_encoder_layers,
-                'n_units_per_seq_encoder_layer': self.n_units_per_seq_encoder_layer,
-                'n_embedding_dims': self.n_embedding_dims
+            "sequence_encoder": {
+                "n_seq_encoder_layers": self.n_seq_encoder_layers,
+                "n_units_per_seq_encoder_layer": self.n_units_per_seq_encoder_layer,
+                "n_embedding_dims": self.n_embedding_dims,
             },
-            'classifier': {
+            "classifier": {
                 "n_classifier_layers": self.n_classifier_layers,
                 "n_units_per_classifier_layer": self.n_units_per_classifier_layer,
-                "n_classes": self.n_classes
-            }
+                "n_classes": self.n_classes,
+            },
         }

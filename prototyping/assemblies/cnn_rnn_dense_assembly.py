@@ -14,7 +14,7 @@ class CnnRnnDenseAssembly(nn.Module):
         model.init_seq_encoder(...)
         model.init_classifier(...)
     '''
-   """
+    """
 
     def __init__(self):
         """All the below attributes are set during initialization mentioned in class docstring."""
@@ -44,12 +44,17 @@ class CnnRnnDenseAssembly(nn.Module):
 
         self.forward_func = None
 
-    def init_conv(self, ConvCls, n_blocks: int,
-                  n_layers_per_block: list[int],
-                  n_filters_per_block: list[int],
-                  n_filters_per_skip: list[int],
-                  input_len: int, n_input_channels: int,
-                  reduction_strat: Literal['conv', 'max_pool', 'avg_pool'] = 'conv'):
+    def init_conv(
+        self,
+        ConvCls,
+        n_blocks: int,
+        n_layers_per_block: list[int],
+        n_filters_per_block: list[int],
+        n_filters_per_skip: list[int],
+        input_len: int,
+        n_input_channels: int,
+        reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
+    ):
         """
         Args:
            ConvCls (nn.Module): Convolutional block class used for feature extraction.
@@ -79,33 +84,45 @@ class CnnRnnDenseAssembly(nn.Module):
             nn.Sequential: Sequential container of convolutional blocks.
         """
         blocks = [
-            self.ConvCls(block_num=0,
-                         input_len=self.input_len,
-                         n_input_channels=self.n_input_channels,
-                         n_layers=self.n_layers_per_block[0],
-                         n_filters_per_layer=self.n_filters_per_block[0],
-                         n_filters_skip=self.n_filters_per_skip[0],
-                         reduction_strat=self.reduction_strat,
-                         kernel_size=2, stride=1)
+            self.ConvCls(
+                block_num=0,
+                input_len=self.input_len,
+                n_input_channels=self.n_input_channels,
+                n_layers=self.n_layers_per_block[0],
+                n_filters_per_layer=self.n_filters_per_block[0],
+                n_filters_skip=self.n_filters_per_skip[0],
+                reduction_strat=self.reduction_strat,
+                kernel_size=2,
+                stride=1,
+            )
         ]
         inp_len = self.input_len // 2
         for i in range(self.n_blocks - 1):
             blocks.append(
-                self.ConvCls(block_num=i + 1,
-                             input_len=inp_len,
-                             n_input_channels=self.n_filters_per_skip[i] + self.n_filters_per_block[i],
-                             n_layers=self.n_layers_per_block[i + 1],
-                             n_filters_per_layer=self.n_filters_per_block[i + 1],
-                             n_filters_skip=self.n_filters_per_skip[i + 1],
-                             reduction_strat=self.reduction_strat,
-                             kernel_size=2, stride=1)
+                self.ConvCls(
+                    block_num=i + 1,
+                    input_len=inp_len,
+                    n_input_channels=self.n_filters_per_skip[i]
+                    + self.n_filters_per_block[i],
+                    n_layers=self.n_layers_per_block[i + 1],
+                    n_filters_per_layer=self.n_filters_per_block[i + 1],
+                    n_filters_skip=self.n_filters_per_skip[i + 1],
+                    reduction_strat=self.reduction_strat,
+                    kernel_size=2,
+                    stride=1,
+                )
             )
             inp_len = inp_len // 2
 
         return nn.Sequential(*blocks)
 
-    def init_seq_encoder(self, n_seq_encoder_layers: int,
-                         hidden_size: int, dropout: float, layer_type: Literal['gru', 'lstm']):
+    def init_seq_encoder(
+        self,
+        n_seq_encoder_layers: int,
+        hidden_size: int,
+        dropout: float,
+        layer_type: Literal["gru", "lstm"],
+    ):
         """
         Args:
             n_seq_encoder_layers (int): Number of layers in the sequence encoder (GRU or LSTM).
@@ -119,7 +136,9 @@ class CnnRnnDenseAssembly(nn.Module):
         self.seq_encoder_layer_type = layer_type
         self.seq_encoder = self._build_seq_encoder()
 
-        self.forward_func = self._forward_gru if layer_type == 'gru' else self._forward_lstm
+        self.forward_func = (
+            self._forward_gru if layer_type == "gru" else self._forward_lstm
+        )
 
     def _build_seq_encoder(self):
         """
@@ -128,24 +147,35 @@ class CnnRnnDenseAssembly(nn.Module):
         Returns:
             nn.Sequential: Sequential container of recurrent layers.
         """
-        if self.seq_encoder_layer_type == 'gru':
+        if self.seq_encoder_layer_type == "gru":
             return nn.Sequential(
-                nn.GRU(input_size=self.n_filters_per_block[-1] + self.n_filters_per_skip[-1],
-                       hidden_size=self.hidden_size,
-                       dropout=self.seq_encoder_dropout,
-                       num_layers=self.n_seq_encoder_layers,
-                       batch_first=True)
+                nn.GRU(
+                    input_size=self.n_filters_per_block[-1]
+                    + self.n_filters_per_skip[-1],
+                    hidden_size=self.hidden_size,
+                    dropout=self.seq_encoder_dropout,
+                    num_layers=self.n_seq_encoder_layers,
+                    batch_first=True,
+                )
             )
         else:
             return nn.Sequential(
-                nn.LSTM(input_size=self.n_filters_per_block[-1] + self.n_filters_per_skip[-1],
-                        hidden_size=self.hidden_size,
-                        dropout=self.seq_encoder_dropout,
-                        num_layers=self.n_seq_encoder_layers,
-                        batch_first=True)
+                nn.LSTM(
+                    input_size=self.n_filters_per_block[-1]
+                    + self.n_filters_per_skip[-1],
+                    hidden_size=self.hidden_size,
+                    dropout=self.seq_encoder_dropout,
+                    num_layers=self.n_seq_encoder_layers,
+                    batch_first=True,
+                )
             )
 
-    def init_classifier(self, n_classifier_layers: int, n_units_per_classifier_layer: list[int], n_classes: int):
+    def init_classifier(
+        self,
+        n_classifier_layers: int,
+        n_units_per_classifier_layer: list[int],
+        n_classes: int,
+    ):
         """
         Args:
             n_classifier_layers (int): Number of layers in the classifier.
@@ -170,7 +200,7 @@ class CnnRnnDenseAssembly(nn.Module):
             n_layers=self.n_classifier_layers,
             n_input_features=n_input_features,
             units_per_layer=self.n_units_per_classifier_layer,
-            n_classes=self.n_classes
+            n_classes=self.n_classes,
         )
         return classifier
 
@@ -202,9 +232,9 @@ class CnnRnnDenseAssembly(nn.Module):
             dict: A dictionary containing the model's configuration.
         """
         return {
-            'class_name': self.__class__.__name__,
-            'temporal_compressor': {
-                "ConvCls": str(self.ConvCls).split('.')[-1][:-2],
+            "class_name": self.__class__.__name__,
+            "temporal_compressor": {
+                "ConvCls": str(self.ConvCls).split(".")[-1][:-2],
                 "input_len": self.input_len,
                 "n_input_channels": self.n_input_channels,
                 "n_blocks": self.n_blocks,
@@ -213,15 +243,15 @@ class CnnRnnDenseAssembly(nn.Module):
                 "n_filters_per_skip": self.n_filters_per_skip,
                 "reduction_strat": self.reduction_strat,
             },
-            'sequence_encoder': {
+            "sequence_encoder": {
                 "n_seq_encoder_layers": self.n_seq_encoder_layers,
                 "hidden_size": self.hidden_size,
                 "dropout": self.seq_encoder_dropout,
-                "layer_type": self.seq_encoder_layer_type
+                "layer_type": self.seq_encoder_layer_type,
             },
-            'classifier': {
+            "classifier": {
                 "n_classifier_layers": self.n_classifier_layers,
                 "n_units_per_classifier_layer": self.n_units_per_classifier_layer,
-                "n_classes": self.n_classes
-            }
+                "n_classes": self.n_classes,
+            },
         }

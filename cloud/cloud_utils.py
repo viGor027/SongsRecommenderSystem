@@ -2,10 +2,18 @@ from prototyping.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
 from prototyping.assemblies.cnn_dense_assembly import CnnDenseAssembly
 from prototyping.assemblies.rnn_dense_assembly import RnnDenseAssembly
 
-from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import Conv1DBlockNoDilationNoSkip
-from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_with_skip import Conv1DBlockNoDilationWithSkip
-from model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_no_skip import Conv1DBlockWithDilationNoSkip
-from model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_with_skip import Conv1DBlockWithDilationWithSkip
+from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import (
+    Conv1DBlockNoDilationNoSkip,
+)
+from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_with_skip import (
+    Conv1DBlockNoDilationWithSkip,
+)
+from model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_no_skip import (
+    Conv1DBlockWithDilationNoSkip,
+)
+from model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_with_skip import (
+    Conv1DBlockWithDilationWithSkip,
+)
 
 import os
 import torch
@@ -15,7 +23,9 @@ from workflow_actions.prepare_dataset.source.constants import PROJECT_FOLDER_DIR
 from io import BytesIO
 
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(PROJECT_FOLDER_DIR, 'cloud', 'key.json')
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(
+    PROJECT_FOLDER_DIR, "cloud", "key.json"
+)
 
 client = storage.Client()
 
@@ -41,7 +51,7 @@ def save_dict_to_gcs_as_json(data_dict, bucket_name, folder_name, file_name):
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(f"{folder_name}/{file_name}.json")
 
-        buffer = BytesIO(json_data.encode('utf-8'))
+        buffer = BytesIO(json_data.encode("utf-8"))
 
         blob.upload_from_file(buffer, content_type="application/json")
 
@@ -76,9 +86,11 @@ def read_json_from_gcs_to_dict(bucket_name, folder_name, file_name):
         json_data = blob.download_as_bytes()
 
         # Decode bytes to a string and parse as JSON
-        data_dict = json.loads(json_data.decode('utf-8'))
+        data_dict = json.loads(json_data.decode("utf-8"))
 
-        print(f"JSON data successfully read from {folder_name}/{file_name}.json in {bucket_name}")
+        print(
+            f"JSON data successfully read from {folder_name}/{file_name}.json in {bucket_name}"
+        )
         return data_dict
     except Exception as e:
         print(f"Error reading JSON data: {e}")
@@ -246,7 +258,9 @@ def load_checkpoint_from_gcs(bucket_name, folder_name, checkpoint_name):
         buffer = BytesIO(checkpoint_data)
         checkpoint = torch.load(buffer)
 
-        print(f"Checkpoint {checkpoint_name} loaded from {folder_name} in {bucket_name}")
+        print(
+            f"Checkpoint {checkpoint_name} loaded from {folder_name} in {bucket_name}"
+        )
         return checkpoint
     except Exception as e:
         print(f"Error loading checkpoint: {e}")
@@ -256,8 +270,8 @@ def load_checkpoint_from_gcs(bucket_name, folder_name, checkpoint_name):
 def load_checkpoint_correctly(model, checkpoint):
     """Fixes wrong layer names"""
     new_state_dict = {}
-    for key, value in checkpoint['state_dict'].items():
-        new_key = key.replace('model.', '')
+    for key, value in checkpoint["state_dict"].items():
+        new_key = key.replace("model.", "")
         new_state_dict[new_key] = value
 
     model.load_state_dict(new_state_dict)
@@ -266,18 +280,20 @@ def load_checkpoint_correctly(model, checkpoint):
     return model
 
 
-def get_ready_model_from_gcs_checkpoint(bucket_name, folder_name, checkpoint_name, cfg_file_name, verbose=False):
+def get_ready_model_from_gcs_checkpoint(
+    bucket_name, folder_name, checkpoint_name, cfg_file_name, verbose=False
+):
     assembly_map = {
         "CnnDenseAssembly": CnnDenseAssembly,
         "CnnRnnDenseAssembly": CnnRnnDenseAssembly,
-        "RnnDenseAssembly": RnnDenseAssembly
+        "RnnDenseAssembly": RnnDenseAssembly,
     }
     conv_cls_map = {
         "Conv1DBlockNoDilationNoSkip": Conv1DBlockNoDilationNoSkip,
         "Conv1DBlockNoDilationWithSkip": Conv1DBlockNoDilationWithSkip,
         "Conv1DBlockWithDilationNoSkip": Conv1DBlockWithDilationNoSkip,
         "Conv1DBlockWithDilationWithSkip": Conv1DBlockWithDilationWithSkip,
-        "None": None
+        "None": None,
     }
 
     ckpt = load_checkpoint_from_gcs(bucket_name, folder_name, checkpoint_name)
@@ -285,24 +301,24 @@ def get_ready_model_from_gcs_checkpoint(bucket_name, folder_name, checkpoint_nam
 
     assembly_map_key = cfg_dict["class_name"]
 
-    conv_cls_key = cfg_dict['temporal_compressor']['ConvCls']
-    cfg_dict['temporal_compressor']['ConvCls'] = conv_cls_map[conv_cls_key]
+    conv_cls_key = cfg_dict["temporal_compressor"]["ConvCls"]
+    cfg_dict["temporal_compressor"]["ConvCls"] = conv_cls_map[conv_cls_key]
 
     if verbose:
-        print("Loaded configuration:", end='\n\n')
+        print("Loaded configuration:", end="\n\n")
         print(f"Parent assembly: {assembly_map_key}")
-        print(f"Loss of the model: {cfg_dict['best_loss']}", end='\n\n')
-        print('temporal_compressor: ')
-        print(cfg_dict['temporal_compressor'], end='\n\n')
-        print('sequence_encoder: ')
-        print(cfg_dict['sequence_encoder'], end='\n\n')
-        print('classifier: ')
-        print(cfg_dict['classifier'], end='\n\n')
+        print(f"Loss of the model: {cfg_dict['best_loss']}", end="\n\n")
+        print("temporal_compressor: ")
+        print(cfg_dict["temporal_compressor"], end="\n\n")
+        print("sequence_encoder: ")
+        print(cfg_dict["sequence_encoder"], end="\n\n")
+        print("classifier: ")
+        print(cfg_dict["classifier"], end="\n\n")
 
     model = assembly_map[assembly_map_key]()
-    model.init_conv(**cfg_dict['temporal_compressor'])
-    model.init_seq_encoder(**cfg_dict['sequence_encoder'])
-    model.init_classifier(**cfg_dict['classifier'])
+    model.init_conv(**cfg_dict["temporal_compressor"])
+    model.init_seq_encoder(**cfg_dict["sequence_encoder"])
+    model.init_classifier(**cfg_dict["classifier"])
     model = load_checkpoint_correctly(model, ckpt)
     return model
 
@@ -313,4 +329,5 @@ if __name__ == "__main__":
         folder_name="test_cloud_2",
         checkpoint_name="test_cloud_2_ckpt",
         cfg_file_name="cfg",
-        verbose=True)
+        verbose=True,
+    )

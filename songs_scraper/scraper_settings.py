@@ -2,15 +2,21 @@ import logging
 import os
 
 ALL_SONGS = False
-MAX_SONGS = 3 # ignored if ALL_SONGS is True 
-MAX_PAGES = 1 # ignored if ALL_SONGS is True
+MAX_SONGS = 3  # ignored if ALL_SONGS is True
+MAX_PAGES = 1  # ignored if ALL_SONGS is True
 
 DOWNLOAD_FILE_PATH = os.path.dirname(os.path.dirname(__file__))
-DOWNLOAD_FILE_PATH = os.path.join(DOWNLOAD_FILE_PATH, 'downloads')
-MUSIC_PATH = os.path.join(DOWNLOAD_FILE_PATH, 'music')
-MOODS_GENRES_PATH = os.path.join(DOWNLOAD_FILE_PATH, 'moods_genres')
+DOWNLOAD_FILE_PATH = os.path.join(DOWNLOAD_FILE_PATH, "downloads")
+MUSIC_PATH = os.path.join(DOWNLOAD_FILE_PATH, "music")
+MOODS_GENRES_PATH = os.path.join(DOWNLOAD_FILE_PATH, "moods_genres")
 
-FFMPEG_PATH = os.path.join(os.path.dirname(__file__), 'ffmpeg', 'ffmpeg-2025-01-02-git-0457aaf0d3-essentials_build', 'bin', 'ffmpeg.exe')
+FFMPEG_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "ffmpeg",
+    "ffmpeg-2025-01-02-git-0457aaf0d3-essentials_build",
+    "bin",
+    "ffmpeg.exe",
+)
 
 os.makedirs(DOWNLOAD_FILE_PATH, exist_ok=True)
 os.makedirs(MUSIC_PATH, exist_ok=True)
@@ -18,45 +24,47 @@ os.makedirs(MOODS_GENRES_PATH, exist_ok=True)
 
 
 # TODO: make another file for logging settings
-LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs.log')
+LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs.log")
 
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(pathname)s - %(levelname)s - %(message)s",
-    datefmt='%d-%b-%y %H:%M:%S',
+    datefmt="%d-%b-%y %H:%M:%S",
     handlers=[
         logging.FileHandler(LOG_PATH),  # Logowanie do pliku
-        logging.StreamHandler()  # Logowanie do konsoli (stdout)
-    ]
+        logging.StreamHandler(),  # Logowanie do konsoli (stdout)
+    ],
 )
 
 LOGGER = logging.getLogger(__name__)
 
 # Youtube scraper settings
-CHANNEL_URL = 'https://www.youtube.com/c/audiolibrary-channel/videos'
+CHANNEL_URL = "https://www.youtube.com/c/audiolibrary-channel/videos"
 
 YDL_CHANNEL_OPTS = {
-    'quiet': False,
-    'extract_flat': True,
-    'download': False,
-    'playlistend': MAX_SONGS if not ALL_SONGS else None,
+    "quiet": False,
+    "extract_flat": True,
+    "download": False,
+    "playlistend": MAX_SONGS if not ALL_SONGS else None,
 }
 
 YDL_VIDEO_OPTS = {
-    'format': 'bestaudio/best',
-    'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-    }],
-    'quiet': False,
-    'extract_flat': True,
-    'outtmpl': os.path.join(MUSIC_PATH, '%(title)s.%(ext)s'),
-    'ffmpeg_location': FFMPEG_PATH,
+    "format": "bestaudio/best",
+    "postprocessors": [
+        {
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }
+    ],
+    "quiet": False,
+    "extract_flat": True,
+    "outtmpl": os.path.join(MUSIC_PATH, "%(title)s.%(ext)s"),
+    "ffmpeg_location": FFMPEG_PATH,
 }
 
 # Ncs scraper settings
-NCS_URL = 'https://ncs.io/music-search?q=&genre=&mood=&version=regular&page='
+NCS_URL = "https://ncs.io/music-search?q=&genre=&mood=&version=regular&page="
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36"
@@ -75,7 +83,28 @@ def replace_special_chars(text: str) -> str:
         text (str): The text to replace special characters in
     """
 
-    special_chars = ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ' ', '\n', '\t', '\r', '\b', '\f', '\v', ',', '.']
+    special_chars = [
+        "/",
+        "\\",
+        "?",
+        "%",
+        "*",
+        ":",
+        "|",
+        '"',
+        "<",
+        ">",
+        ".",
+        " ",
+        "\n",
+        "\t",
+        "\r",
+        "\b",
+        "\f",
+        "\v",
+        ",",
+        ".",
+    ]
     for char in special_chars:
-        text = text.replace(char, '_')
+        text = text.replace(char, "_")
     return text

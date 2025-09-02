@@ -16,11 +16,18 @@ class Conv1DBaseBlock(nn.Module):
         - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
     """
 
-    def __init__(self, block_num: int, input_len: int,
-                 n_input_channels: int, n_layers: int,
-                 n_filters_per_layer: int, kernel_size: int,
-                 stride: int, dilation: bool = False,
-                 reduction_strat: Literal['conv', 'max_pool', 'avg_pool'] = 'conv'):
+    def __init__(
+        self,
+        block_num: int,
+        input_len: int,
+        n_input_channels: int,
+        n_layers: int,
+        n_filters_per_layer: int,
+        kernel_size: int,
+        stride: int,
+        dilation: bool = False,
+        reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
+    ):
         """Note: block_num indicates the sequential position of this block in the model."""
 
         super().__init__()
@@ -34,7 +41,9 @@ class Conv1DBaseBlock(nn.Module):
         self.stride = stride
         self.dilation = dilation
         self.reduction_strat = reduction_strat
-        self.padding_left = (input_len - 1) * stride - input_len + 1 * (kernel_size - 1) + 1
+        self.padding_left = (
+            (input_len - 1) * stride - input_len + 1 * (kernel_size - 1) + 1
+        )
 
         self.block = self.build_conv_block()
 
@@ -50,60 +59,78 @@ class Conv1DBaseBlock(nn.Module):
             layer_dilation = dilation[i]
             in_channels = self.n_filters_per_layer if i != 0 else self.n_input_channels
             layers.append(
-                (f'block_{self.block_num}_padding_{i}',
-                 self._get_padding_layer(layer_dilation))
-            )
-            layers.append(
-                (f'block_{self.block_num}_conv_{i}',
-                 nn.Conv1d(
-                     in_channels=in_channels,
-                     out_channels=self.n_filters_per_layer,
-                     kernel_size=self.kernel_size, stride=self.stride,
-                     dilation=layer_dilation, dtype=torch.float32)
-                 )
-            )
-            layers.append((f'block_{self.block_num}_activation_{i}', nn.ReLU()))
-
-        # divides len of time dimension by two
-        if self.reduction_strat == 'conv':
-            in_channels = self.n_filters_per_layer if self.n_layers != 0 else self.n_input_channels
-            layers.append(
-                (f'block_{self.block_num}_conv_reduce',
-                 nn.Conv1d(in_channels=in_channels,
-                           out_channels=self.n_filters_per_layer,
-                           kernel_size=2, stride=2, dtype=torch.float32)
-                 )
-            )
-        elif self.reduction_strat == 'max_pool':
-            layers.append(
-                (f'block_{self.block_num}_max_pool_reduce',
-                 nn.MaxPool1d(kernel_size=2, stride=2)
+                (
+                    f"block_{self.block_num}_padding_{i}",
+                    self._get_padding_layer(layer_dilation),
                 )
             )
-        elif self.reduction_strat == 'avg_pool':
             layers.append(
-                (f'block_{self.block_num}_avg_pool_reduce',
-                 nn.AvgPool1d(kernel_size=2, stride=2)
-                 )
+                (
+                    f"block_{self.block_num}_conv_{i}",
+                    nn.Conv1d(
+                        in_channels=in_channels,
+                        out_channels=self.n_filters_per_layer,
+                        kernel_size=self.kernel_size,
+                        stride=self.stride,
+                        dilation=layer_dilation,
+                        dtype=torch.float32,
+                    ),
+                )
             )
-        layers.append((f'block_{self.block_num}_end_block_activation', nn.ReLU()))
-        return nn.Sequential(
-            OrderedDict(
-                layers
+            layers.append((f"block_{self.block_num}_activation_{i}", nn.ReLU()))
+
+        # divides len of time dimension by two
+        if self.reduction_strat == "conv":
+            in_channels = (
+                self.n_filters_per_layer
+                if self.n_layers != 0
+                else self.n_input_channels
             )
-        )
+            layers.append(
+                (
+                    f"block_{self.block_num}_conv_reduce",
+                    nn.Conv1d(
+                        in_channels=in_channels,
+                        out_channels=self.n_filters_per_layer,
+                        kernel_size=2,
+                        stride=2,
+                        dtype=torch.float32,
+                    ),
+                )
+            )
+        elif self.reduction_strat == "max_pool":
+            layers.append(
+                (
+                    f"block_{self.block_num}_max_pool_reduce",
+                    nn.MaxPool1d(kernel_size=2, stride=2),
+                )
+            )
+        elif self.reduction_strat == "avg_pool":
+            layers.append(
+                (
+                    f"block_{self.block_num}_avg_pool_reduce",
+                    nn.AvgPool1d(kernel_size=2, stride=2),
+                )
+            )
+        layers.append((f"block_{self.block_num}_end_block_activation", nn.ReLU()))
+        return nn.Sequential(OrderedDict(layers))
 
     def _get_padding_layer(self, dilation: int):
         """
-       Calculates and returns a padding layer to ensure causal padding for the convolution.
+        Calculates and returns a padding layer to ensure causal padding for the convolution.
 
-       Args:
-           dilation (int): The dilation value for the corresponding convolution layer.
+        Args:
+            dilation (int): The dilation value for the corresponding convolution layer.
 
-       Returns:
-           nn.ConstantPad2d: A padding layer with the calculated padding size.
-       """
-        padding = (self.input_len - 1) * self.stride - self.input_len + dilation * (self.kernel_size - 1) + 1
+        Returns:
+            nn.ConstantPad2d: A padding layer with the calculated padding size.
+        """
+        padding = (
+            (self.input_len - 1) * self.stride
+            - self.input_len
+            + dilation * (self.kernel_size - 1)
+            + 1
+        )
         return nn.ConstantPad2d((padding, 0, 0, 0), 0)
 
     def _get_block_dilation(self):
@@ -115,7 +142,7 @@ class Conv1DBaseBlock(nn.Module):
                        otherwise, an empty list.
         """
         if self.dilation:
-            return [2 ** i for i in range(self.n_layers)]
+            return [2**i for i in range(self.n_layers)]
         return []
 
     def forward(self, x):
@@ -126,7 +153,7 @@ class Conv1DBaseBlock(nn.Module):
         for name, layer in self.block.named_children():
             print("Name: ", name, " Layer: ", layer)
             x = layer(x)
-            print(f'Output shape {x.shape}')
+            print(f"Output shape {x.shape}")
             print()
         return x
 
@@ -140,10 +167,16 @@ if __name__ == "__main__":
 
     sample = torch.randn((4, sample_channels, sample_len))
 
-    model = Conv1DBaseBlock(block_num=1, input_len=sample_len,
-                            n_input_channels=sample_channels, kernel_size=2, stride=1,
-                            n_filters_per_layer=32,
-                            n_layers=2, dilation=True)
+    model = Conv1DBaseBlock(
+        block_num=1,
+        input_len=sample_len,
+        n_input_channels=sample_channels,
+        kernel_size=2,
+        stride=1,
+        n_filters_per_layer=32,
+        n_layers=2,
+        dilation=True,
+    )
     # sample = model(sample)
     sample = model.debug_forward(sample)
     print("Shape after: ", sample.shape)

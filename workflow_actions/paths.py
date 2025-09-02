@@ -3,7 +3,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]  # SongsRecommenderSystem/
 
-# data
+"""DATA PATHS"""
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "01_raw"
 FRAGMENTED_DATA_DIR = DATA_DIR / "02_fragmented"
@@ -14,3 +14,9 @@ LABELS_DIR = RAW_DATA_DIR / "labels"
 
 LABELS_PATH = LABELS_DIR / "labels.json"
 LABEL_MAPPING_PATH = LABELS_DIR / "label_mapping.json"
+
+"""CONFIG PATHS"""
+WORKFLOWS_ROOT = PROJECT_ROOT / "workflow_actions"
+PREPARE_DATASET_CONFIG_PATH = (
+    WORKFLOWS_ROOT / "prepare_dataset" / "prepare_dataset_config.json"
+)

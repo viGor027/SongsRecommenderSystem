@@ -8,27 +8,10 @@ class SpectrogramAugment:
     """
     Spectrogram-level augmentation using torchaudio.transforms.
 
-    Config format (JSON):
-    {
-      "log_path": "...",
-      "augmentations": [
-        {
-          "name": "TimeMasking",
-          "params": {
-            "time_mask_param": 80,
-            "iid_masks": False,
-            "p": 0.5
-          }
-        },
-        {
-          "name": "FrequencyMasking",
-          "params": {
-            "freq_mask_param": 30,
-            "iid_masks": False,
-          }
-        }
-      ]
-    }
+    To introduce new augmentation add entry in spectrogram_augment.augmentation list in
+    prepare_dataset_config.json, this entry needs to contain `name` key which value
+    corresponds to key in `_AUG_MAP`and `params` key that is dictionary containing every
+    parameter that class from `_AUG_MAP` needs to be initialized with.
     """
 
     _AUG_MAP = {
@@ -48,7 +31,9 @@ class SpectrogramAugment:
             transform = AugCls(**params)
             self.transforms.append(transform)
 
-    def __call__(self, fragment_id: str, spectrogram: np.ndarray) -> tuple[torch.Tensor, list[str]]:
+    def __call__(
+        self, fragment_id: str, spectrogram: np.ndarray
+    ) -> tuple[torch.Tensor, list[str]]:
         """
         fragment_id:  identyfikator
         spectrogram:  2D float32 numpy array, shape (n_mels, time_steps)

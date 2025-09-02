@@ -3,7 +3,9 @@ from lightning.pytorch.callbacks import Callback
 
 
 class GCSModelCheckpoint(Callback):
-    def __init__(self, bucket_name, folder_name, checkpoint_name, monitor="val_loss", mode="min"):
+    def __init__(
+        self, bucket_name, folder_name, checkpoint_name, monitor="val_loss", mode="min"
+    ):
         """
         Custom Callback for saving the best model checkpoint to GCS.
 
@@ -38,20 +40,24 @@ class GCSModelCheckpoint(Callback):
                 return
 
             is_better = (
-                current_value < self.best_value if self.mode == "min" else current_value > self.best_value
+                current_value < self.best_value
+                if self.mode == "min"
+                else current_value > self.best_value
             )
             if is_better:
                 self.best_value = current_value
                 checkpoint_dict = checkpoint
-                checkpoint_dict['best_loss'] = self.best_value
+                checkpoint_dict["best_loss"] = self.best_value
                 success = save_checkpoint_to_gcs(
                     checkpoint=checkpoint_dict,
                     bucket_name=self.bucket_name,
                     folder_name=self.folder_name,
-                    checkpoint_name=self.checkpoint_name
+                    checkpoint_name=self.checkpoint_name,
                 )
                 if success:
-                    print(f"Best model checkpoint saved to {self.folder_name}/{self.checkpoint_name}.ckpt in {self.bucket_name}")
+                    print(
+                        f"Best model checkpoint saved to {self.folder_name}/{self.checkpoint_name}.ckpt in {self.bucket_name}"
+                    )
             else:
                 print(f"Skipping checkpoint save, {self.monitor} did not improve.")
         except Exception as e:
@@ -61,13 +67,15 @@ class GCSModelCheckpoint(Callback):
         """
         Return the state of the callback (e.g., best_value).
         """
-        return {'best_value': self.best_value}
+        return {"best_value": self.best_value}
 
     def load_state_dict(self, state_dict):
         """
         Restore the state of the callback (e.g., best_value).
         """
-        self.best_value = state_dict.get('best_value', float("inf") if self.mode == "min" else -float("inf"))
+        self.best_value = state_dict.get(
+            "best_value", float("inf") if self.mode == "min" else -float("inf")
+        )
 
     def retrieve_best_loss(self):
         return self.best_value

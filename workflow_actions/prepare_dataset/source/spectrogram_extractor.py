@@ -7,11 +7,9 @@ ExtractionMethod: TypeAlias = Literal["mel"]
 
 
 class SpectrogramExtractor:
-    def __init__(self,
-                 extraction_method: ExtractionMethod,
-                 sample_rate: int,
-                 n_mels: int
-                 ):
+    def __init__(
+        self, extraction_method: ExtractionMethod, sample_rate: int, n_mels: int
+    ):
         extraction_methods: dict[ExtractionMethod, Callable] = {
             "mel": self._extract_mel_spec_from_fragments
         }
@@ -21,8 +19,8 @@ class SpectrogramExtractor:
         self.n_mels = n_mels
 
     def _extract_mel_spec_from_fragments(
-            self,
-            fragments: Iterable[np.ndarray],
+        self,
+        fragments: Iterable[np.ndarray],
     ) -> list[np.ndarray]:
         """
         Extracts mel spectrograms from an iterable of audio fragments.
