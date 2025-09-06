@@ -1,4 +1,5 @@
 from workflow_actions.paths import (
+    DATA_DIR,
     LABELS_PATH,
     LABEL_MAPPING_PATH,
     DOWNLOAD_DIR,
@@ -39,6 +40,25 @@ class PrepareDatasetStartIndexes:
     start_index_valid: int
 
 
+@dataclass
+class FragmentsIndex:
+    # maps global fragment number to song title that contains this fragment
+    train_index: dict[int, str]
+    valid_index: dict[int, str]
+
+    def add_song_to_train(self, song_title: str, start_with_idx: int, n_fragments: int):
+        for relative_idx in range(n_fragments):
+            self.train_index[start_with_idx+relative_idx] = song_title
+
+    def add_song_to_valid(self, song_title: str, start_with_idx: int, n_fragments: int):
+        for relative_idx in range(n_fragments):
+            self.valid_index[start_with_idx+relative_idx] = song_title
+
+    def dump_indexes(self):
+        write_dict_to_json(self.train_index, DATA_DIR / "train_index.json")
+        write_dict_to_json(self.valid_index, DATA_DIR / "valid_index.json")
+
+
 class PrepareDataset:
     def __init__(
         self,
@@ -62,18 +82,30 @@ class PrepareDataset:
             )
 
     def prepare_all_songs_fragments(self):
-        """Function first empties train, valid directories of `02_fragmented`."""
+        """
+        For each song from 01_raw its labels and fragments are prepared
+        and put into respective 02_fragmented directories.
+
+        Note: Function first empties train, valid directories of `02_fragmented`.
+        """
         self._empty_folder(FRAGMENTED_DATA_DIR / "train")
         self._empty_folder(FRAGMENTED_DATA_DIR / "valid")
         start_indexes = PrepareDatasetStartIndexes(0, 0)
+        fragments_index = FragmentsIndex(train_index={}, valid_index={})
         for song in DOWNLOAD_DIR.iterdir():
             if song.is_file():
                 self.prepare_single_song_fragments(
-                    song_title=song.name, start_indexes=start_indexes
+                    song_title=song.name,
+                    start_indexes=start_indexes,
+                    fragments_index=fragments_index
                 )
+        fragments_index.dump_indexes()
 
     def prepare_single_song_fragments(
-        self, song_title: str, start_indexes: PrepareDatasetStartIndexes
+        self,
+        song_title: str,
+        start_indexes: PrepareDatasetStartIndexes,
+        fragments_index: FragmentsIndex
     ):
         """
         Creates song fragments with labels and saves them to 02_fragmented.
@@ -88,26 +120,39 @@ class PrepareDataset:
         fragmented_song: "FragmentedSongNumpy" = self.chunker.make_fragments_from_numpy(
             song=song
         )
+        song_title = song_title.replace(".mp3", "")
         encoded_song_tags: torch.Tensor = encode_song_labels_to_multi_hot_vector(
-            song_title=song_title.replace(".mp3", "")
+            song_title=song_title
         )
         train_samples = fragmented_song["train"]
+        n_train_samples = len(train_samples)
         self._save_set_fragments_with_labels(
             set_type="train",
             samples=train_samples,
             encoded_song_tags=encoded_song_tags,
             start_with_index=start_indexes.start_index_train,
         )
-        start_indexes.start_index_train += len(train_samples)
+        fragments_index.add_song_to_train(
+            song_title=song_title,
+            start_with_idx=start_indexes.start_index_train,
+            n_fragments=n_train_samples
+        )
+        start_indexes.start_index_train += n_train_samples
 
         valid_samples = fragmented_song["valid"]
+        n_valid_samples = len(valid_samples)
         self._save_set_fragments_with_labels(
             set_type="valid",
             samples=valid_samples,
             encoded_song_tags=encoded_song_tags,
             start_with_index=start_indexes.start_index_valid,
         )
-        start_indexes.start_index_valid += len(valid_samples)
+        fragments_index.add_song_to_valid(
+            song_title=song_title,
+            start_with_idx=start_indexes.start_index_valid,
+            n_fragments=n_valid_samples
+        )
+        start_indexes.start_index_valid += n_valid_samples
 
     def pre_epoch_augment_hook(self):
         """
@@ -209,7 +254,6 @@ class PrepareDataset:
     ):
         for current_relative_idx, fragment in enumerate(samples):
             absolute_fragment_number = current_relative_idx + start_with_index
-            print("DEBUG _save_set_fragments_with_labels: ", fragment.shape)
             save_numpy_fragment(
                 fragment=fragment,
                 path=FRAGMENTED_DATA_DIR
