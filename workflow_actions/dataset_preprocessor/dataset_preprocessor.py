@@ -6,22 +6,22 @@ from workflow_actions.paths import (
     FRAGMENTED_DATA_DIR,
     MODEL_READY_DATA_DIR,
 )
-from workflow_actions.prepare_dataset.source.raw_augment import RawAugment
-from workflow_actions.prepare_dataset.source.serializer import (
+from workflow_actions.dataset_preprocessor.source.raw_augment import RawAugment
+from workflow_actions.dataset_preprocessor.source.serializer import (
     load_single_song_to_numpy,
     save_numpy_fragment,
     load_numpy_fragment,
 )
-from workflow_actions.prepare_dataset.source.label_encoder import (
+from workflow_actions.dataset_preprocessor.source.label_encoder import (
     encode_song_labels_to_multi_hot_vector,
 )
-from workflow_actions.prepare_dataset.source.spectrogram_extractor import (
+from workflow_actions.dataset_preprocessor.source.spectrogram_extractor import (
     SpectrogramExtractor,
 )
-from workflow_actions.prepare_dataset.source.spectrogram_augment import (
+from workflow_actions.dataset_preprocessor.source.spectrogram_augment import (
     SpectrogramAugment,
 )
-from workflow_actions.prepare_dataset.source.chunker import Chunker
+from workflow_actions.dataset_preprocessor.source.chunker import Chunker
 from workflow_actions.json_handlers import write_dict_to_json, read_json_to_dict
 from collections import Counter
 from typing import TYPE_CHECKING, Literal
@@ -31,11 +31,11 @@ from pathlib import Path
 import shutil
 
 if TYPE_CHECKING:
-    from chunker import FragmentedSongNumpy
+    from workflow_actions.dataset_preprocessor.source.chunker import FragmentedSongNumpy
 
 
 @dataclass
-class PrepareDatasetStartIndexes:
+class StartIndexes:
     start_index_train: int
     start_index_valid: int
 
@@ -59,7 +59,7 @@ class FragmentsIndex:
         write_dict_to_json(self.valid_index, DATA_DIR / "valid_index.json")
 
 
-class PrepareDataset:
+class DatasetPreprocessor:
     def __init__(
         self,
         chunker: dict,
@@ -90,7 +90,7 @@ class PrepareDataset:
         """
         self._empty_folder(FRAGMENTED_DATA_DIR / "train")
         self._empty_folder(FRAGMENTED_DATA_DIR / "valid")
-        start_indexes = PrepareDatasetStartIndexes(0, 0)
+        start_indexes = StartIndexes(0, 0)
         fragments_index = FragmentsIndex(train_index={}, valid_index={})
         for song in DOWNLOAD_DIR.iterdir():
             if song.is_file():
@@ -104,7 +104,7 @@ class PrepareDataset:
     def prepare_single_song_fragments(
         self,
         song_title: str,
-        start_indexes: PrepareDatasetStartIndexes,
+        start_indexes: StartIndexes,
         fragments_index: FragmentsIndex
     ):
         """
