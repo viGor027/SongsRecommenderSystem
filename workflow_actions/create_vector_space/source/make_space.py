@@ -1,8 +1,8 @@
 import torch
-from workflow_actions.prepare_dataset.source.spectogram_pipeline import (
+from workflow_actions.dataset_preprocessor.source.spectogram_pipeline import (
     SpectogramPipeline,
 )
-from workflow_actions.prepare_dataset.source.constants import (
+from workflow_actions.dataset_preprocessor.source.constants import (
     SPACE_DIR,
     LABELS_DIR,
     SONGS_DIR,
@@ -11,7 +11,7 @@ from workflow_actions.prepare_dataset.source.constants import (
     N_SECONDS,
     STEP,
 )
-from workflow_actions.prepare_dataset.source.utils import prepare_for_dataset
+from workflow_actions.dataset_preprocessor.source.utils import prepare_for_dataset
 from workflow_actions.json_handlers import read_json_to_dict, write_dict_to_json
 from cloud.cloud_utils import get_ready_model_from_gcs_checkpoint
 import os

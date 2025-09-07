@@ -1,19 +1,19 @@
 import torch.nn as nn
-from model_components.classifier.base_classifier import BaseClassifier
+from architectures.model_components.classifier.base_classifier import BaseClassifier
 from typing import Literal
 
 
-class CnnDenseAssembly(nn.Module):
+class CnnRnnDenseAssembly(nn.Module):
     """
     A wrapper for convenient model assembling.
 
     You must initialize each part of the model before usage:
-     '''
+    '''
         model = CnnRnnDenseAssembly()
         model.init_conv(...)
         model.init_seq_encoder(...)
         model.init_classifier(...)
-     '''
+    '''
     """
 
     def __init__(self):
@@ -29,10 +29,10 @@ class CnnDenseAssembly(nn.Module):
         self.input_len = None
         self.n_input_channels = None
 
-        self.seq_encoder_input_features = None
         self.n_seq_encoder_layers = None
-        self.n_units_per_seq_encoder_layer = None
-        self.n_embedding_dims = None
+        self.hidden_size = None
+        self.seq_encoder_dropout = None
+        self.seq_encoder_layer_type = None
 
         self.n_classifier_layers = None
         self.n_units_per_classifier_layer = None
@@ -41,6 +41,8 @@ class CnnDenseAssembly(nn.Module):
         self.conv = None
         self.seq_encoder = None
         self.classifier = None
+
+        self.forward_func = None
 
     def init_conv(
         self,
@@ -76,7 +78,7 @@ class CnnDenseAssembly(nn.Module):
 
     def _build_conv(self):
         """
-        Builds convolutional blocks based on configuration passed to init_conv.
+        Builds temporal compressor based on configuration passed to init_conv.
 
         Returns:
             nn.Sequential: Sequential container of convolutional blocks.
@@ -111,47 +113,62 @@ class CnnDenseAssembly(nn.Module):
                 )
             )
             inp_len = inp_len // 2
-        self.seq_encoder_input_features = inp_len * (
-            self.n_filters_per_block[self.n_blocks - 1]
-            + self.n_filters_per_skip[self.n_blocks - 1]
-        )
 
         return nn.Sequential(*blocks)
 
     def init_seq_encoder(
         self,
         n_seq_encoder_layers: int,
-        n_units_per_seq_encoder_layer: list[int],
-        n_embedding_dims: int,
+        hidden_size: int,
+        dropout: float,
+        layer_type: Literal["gru", "lstm"],
     ):
         """
-        Initializes the sequence encoder with the specified parameters.
-
         Args:
-            n_seq_encoder_layers (int): Number of layers in the sequence encoder.
-            n_units_per_seq_encoder_layer (list[int]): Number of units per sequence encoder layer.
-            n_embedding_dims (int): Dimension of the embeddings produced by the sequence encoder.
+            n_seq_encoder_layers (int): Number of layers in the sequence encoder (GRU or LSTM).
+            hidden_size (int): Hidden state size of the sequence encoder.
+            dropout (float): Dropout probability for the sequence encoder.
+            layer_type (Literal['gru', 'lstm']): Type of sequence encoder ('gru' or 'lstm').
         """
         self.n_seq_encoder_layers = n_seq_encoder_layers
-        self.n_units_per_seq_encoder_layer = n_units_per_seq_encoder_layer
-        self.n_embedding_dims = n_embedding_dims
+        self.hidden_size = hidden_size
+        self.seq_encoder_dropout = dropout
+        self.seq_encoder_layer_type = layer_type
         self.seq_encoder = self._build_seq_encoder()
+
+        self.forward_func = (
+            self._forward_gru if layer_type == "gru" else self._forward_lstm
+        )
 
     def _build_seq_encoder(self):
         """
-        Builds dense sequence encoder based on configuration passed to init_seq_encoder.
+        Builds sequence encoder based on configuration passed to init_seq_encoder.
 
         Returns:
-            BaseClassifier: Sequence encoder.
+            nn.Sequential: Sequential container of recurrent layers.
         """
-        seq_encoder = BaseClassifier(
-            n_layers=self.n_seq_encoder_layers,
-            n_input_features=self.seq_encoder_input_features,
-            units_per_layer=self.n_units_per_seq_encoder_layer,
-            n_classes=self.n_embedding_dims,
-            sigmoid_output=False,
-        )
-        return seq_encoder
+        if self.seq_encoder_layer_type == "gru":
+            return nn.Sequential(
+                nn.GRU(
+                    input_size=self.n_filters_per_block[-1]
+                    + self.n_filters_per_skip[-1],
+                    hidden_size=self.hidden_size,
+                    dropout=self.seq_encoder_dropout,
+                    num_layers=self.n_seq_encoder_layers,
+                    batch_first=True,
+                )
+            )
+        else:
+            return nn.Sequential(
+                nn.LSTM(
+                    input_size=self.n_filters_per_block[-1]
+                    + self.n_filters_per_skip[-1],
+                    hidden_size=self.hidden_size,
+                    dropout=self.seq_encoder_dropout,
+                    num_layers=self.n_seq_encoder_layers,
+                    batch_first=True,
+                )
+            )
 
     def init_classifier(
         self,
@@ -177,22 +194,37 @@ class CnnDenseAssembly(nn.Module):
         Returns:
             BaseClassifier: Classifier network.
         """
+        n_input_features = self.hidden_size
+
         classifier = BaseClassifier(
             n_layers=self.n_classifier_layers,
-            n_input_features=self.n_embedding_dims,
+            n_input_features=n_input_features,
             units_per_layer=self.n_units_per_classifier_layer,
             n_classes=self.n_classes,
         )
         return classifier
 
     def forward(self, x):
+        x = self.forward_func(x)
+        return x
+
+    def _forward_gru(self, x):
         x = self.conv(x)
-        x = x.reshape((x.size(0), -1))
-        x = self.seq_encoder(x)
+        x = x.permute(0, 2, 1)
+        _, h_n = self.seq_encoder(x)
+        x = h_n[-1]
         x = self.classifier(x)
         return x
 
-    def get_instance_config(self):
+    def _forward_lstm(self, x):
+        x = self.conv(x)
+        x = x.permute(0, 2, 1)
+        _, (h_n, _) = self.seq_encoder(x)
+        x = h_n[-1]
+        x = self.classifier(x)
+        return x
+
+    def get_instance_config(self) -> dict:
         """
         Retrieves the configuration of the model instance.
 
@@ -213,8 +245,9 @@ class CnnDenseAssembly(nn.Module):
             },
             "sequence_encoder": {
                 "n_seq_encoder_layers": self.n_seq_encoder_layers,
-                "n_units_per_seq_encoder_layer": self.n_units_per_seq_encoder_layer,
-                "n_embedding_dims": self.n_embedding_dims,
+                "hidden_size": self.hidden_size,
+                "dropout": self.seq_encoder_dropout,
+                "layer_type": self.seq_encoder_layer_type,
             },
             "classifier": {
                 "n_classifier_layers": self.n_classifier_layers,

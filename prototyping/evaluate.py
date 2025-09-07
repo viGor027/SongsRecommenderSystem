@@ -2,7 +2,7 @@ import os
 import torch
 from torcheval.metrics import MultilabelAccuracy
 from torch.nn import BCELoss
-from workflow_actions.prepare_dataset.source.constants import DATA_DIR
+from workflow_actions.dataset_preprocessor.source.constants import DATA_DIR
 from workflow_actions.json_handlers import write_dict_to_json
 import pandas as pd
 

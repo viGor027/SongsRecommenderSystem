@@ -17,6 +17,7 @@ LABEL_MAPPING_PATH = LABELS_DIR / "label_mapping.json"
 
 """CONFIG PATHS"""
 WORKFLOWS_ROOT = PROJECT_ROOT / "workflow_actions"
-PREPARE_DATASET_CONFIG_PATH = (
-    WORKFLOWS_ROOT / "prepare_dataset" / "prepare_dataset_config.json"
+DATASET_PREPROCESSOR_CONFIG_PATH = (
+    WORKFLOWS_ROOT / "prepare_dataset" / "dataset_preprocessor_config.json"
 )
+

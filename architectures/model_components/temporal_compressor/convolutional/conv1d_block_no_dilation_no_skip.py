@@ -1,13 +1,13 @@
 from torch import nn
-from model_components.temporal_compressor.convolutional.conv1d_base_block import (
+from architectures.model_components.temporal_compressor.convolutional.conv1d_base_block import (
     Conv1DBaseBlock,
 )
 from typing import Literal
 
 
-class Conv1DBlockWithDilationNoSkip(nn.Module):
+class Conv1DBlockNoDilationNoSkip(nn.Module):
     """
-    A convolutional block that processes 1D inputs without skip connections, incorporating dilation.
+    A convolutional block that processes 1D inputs without dilation or skip connections.
 
     This class is implemented with causal padding(look at Conv1DBaseBlock implementation for further explanation).
 
@@ -44,7 +44,7 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
             n_filters_per_layer=n_filters_per_layer,
             kernel_size=kernel_size,
             stride=stride,
-            dilation=True,
+            dilation=False,
             reduction_strat=reduction_strat,
         )
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     sample = torch.randn((4, sample_channels, sample_len))
 
-    model = Conv1DBlockWithDilationNoSkip(
+    model = Conv1DBlockNoDilationNoSkip(
         block_num=1,
         input_len=sample_len,
         n_input_channels=sample_channels,

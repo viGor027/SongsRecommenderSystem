@@ -1,11 +1,11 @@
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
-from model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import (
+from architectures.model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import (
     Conv1DBlockNoDilationNoSkip,
 )
 
-from prototyping.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
+from architectures.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
 
 from prototyping.trainer_module import TrainerModule
 import lightning as L
