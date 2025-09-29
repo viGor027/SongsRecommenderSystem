@@ -1,16 +1,14 @@
 from torch import nn
-from architectures.model_components.temporal_compressor.convolutional.conv1d_base_block import (
-    Conv1DBaseBlock,
+from architectures.model_components.temporal_compressor.convolutional.conv2d_base_block import (
+    Conv2DBaseBlock,
 )
 import torch
 from typing import Literal
 
 
-class Conv1DBlockNoDilationNoSkip(nn.Module):
+class Conv2DBlockNoSkip(nn.Module):
     """
-    A convolutional block that processes 1D inputs without dilation or skip connections.
-
-    This class is implemented with causal padding(look at Conv1DBaseBlock implementation for further explanation).
+    A convolutional block that processes 2D without skip connections.
 
     Notes:
         - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
@@ -19,37 +17,30 @@ class Conv1DBlockNoDilationNoSkip(nn.Module):
     def __init__(
         self,
         block_num: int,
-        input_len: int,
         n_input_channels: int,
         n_layers: int,
         n_filters_per_layer: int,
-        n_filters_skip: int,
         kernel_size: int,
-        stride: int,
+        stride: int = 1,
         activation: Literal['relu', 'hardswish'] = 'relu',
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
+        reduction_kernel_size: int = 2,
+        reduction_stride: int = 2,
         dtype: torch.dtype = torch.float32
     ):
-        """
-        Notes:
-            - n_filters_skip is not used and is passed solely for API consistency.
-            - block_num indicates the sequential position of this block in the model.
-            - input_len is a Length of the input's temporal dimension, corresponding to L_in in temporal_compressor/note.md.
-            - n_input_channels is equal to n_mels if this is the first block in a model.
-        """
         super().__init__()
 
-        self.block = Conv1DBaseBlock(
+        self.block = Conv2DBaseBlock(
             block_num=block_num,
-            input_len=input_len,
             n_input_channels=n_input_channels,
             n_layers=n_layers,
             n_filters_per_layer=n_filters_per_layer,
             kernel_size=kernel_size,
             stride=stride,
-            dilation=False,
             activation=activation,
             reduction_strat=reduction_strat,
+            reduction_kernel_size=reduction_kernel_size,
+            reduction_stride=reduction_stride,
             dtype=dtype
         )
 
@@ -70,21 +61,18 @@ if __name__ == "__main__":
     # Usage example
     import torch
 
-    sample_len = 200
+    sample_len = 216
     sample_channels = 80
 
-    sample = torch.randn((4, sample_channels, sample_len))
+    sample = torch.randn((4, 1, sample_channels, sample_len))
 
-    model = Conv1DBlockNoDilationNoSkip(
+    model = Conv2DBlockNoSkip(
         block_num=1,
-        input_len=sample_len,
-        n_input_channels=sample_channels,
-        kernel_size=2,
-        stride=1,
-        n_filters_per_layer=64,
-        n_filters_skip=16,
+        n_input_channels=1,
         n_layers=2,
-        reduction_strat="conv",
+        n_filters_per_layer=16,
+        kernel_size=3,
+        reduction_strat='conv'
     )
     sample = model.debug_forward(sample)
     print("Shape after: ", sample.shape)

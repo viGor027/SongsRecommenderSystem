@@ -3,6 +3,7 @@ from architectures.model_components.temporal_compressor.convolutional.conv1d_bas
     Conv1DBaseBlock,
 )
 from typing import Literal
+import torch
 
 
 class Conv1DBlockWithDilationNoSkip(nn.Module):
@@ -25,7 +26,9 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
         n_filters_skip: int,
         kernel_size: int,
         stride: int,
+        activation: Literal['relu', 'hardswish'] = 'relu',
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
+        dtype: torch.dtype = torch.float32
     ):
         """
         Notes:
@@ -44,8 +47,10 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
             n_filters_per_layer=n_filters_per_layer,
             kernel_size=kernel_size,
             stride=stride,
+            activation=activation,
             dilation=True,
             reduction_strat=reduction_strat,
+            dtype=dtype
         )
 
     def forward(self, x):
