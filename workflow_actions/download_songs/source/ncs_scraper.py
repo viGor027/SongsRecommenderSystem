@@ -26,7 +26,6 @@ class NCSScraper:
         """
         self.pages = pages
         self.session = requests.Session()
-        # pretend to be a real browser
         self.session.headers.update(
             {
                 "User-Agent": (
@@ -37,7 +36,6 @@ class NCSScraper:
         )
         self.labels: Dict[str, List[str]] = {}
 
-        # ensure raw dirs exist and are empty
         DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
         LABELS_DIR.mkdir(parents=True, exist_ok=True)
         for f in DOWNLOAD_DIR.iterdir():
@@ -89,11 +87,8 @@ class NCSScraper:
             if not track or not url or not raw_artists:
                 continue
 
-            # parse genres
             genres = [g.strip() for g in raw_genre.split(",") if g.strip()]
 
-            # parse moods from the adjacent <td style="width:15%">
-            # find the parent <tr>, then its mood cell
             row = play_btn.find_parent("tr")
             mood_cell = row.find("td", attrs={"style": re.compile(r"width\s*:\s*15%")})
             if mood_cell:
@@ -106,16 +101,12 @@ class NCSScraper:
             else:
                 moods = []
 
-            # parse artists list
             artists = [a.strip() for a in raw_artists.split(",") if a.strip()]
 
-            # build human-readable title
             display_title = f"{', '.join(artists)} - {track}"
 
-            # build raw combined name for filename/key
             combined = f"{','.join(artists)}-{track}"
 
-            # sanitize to safe_title
             safe_title = self.sanitize_title(combined)
 
             entries.append(
@@ -164,7 +155,6 @@ class NCSScraper:
                 fname = self.download_song(entry)
                 if fname:
                     key = Path(fname).stem
-                    # use the same safe_title (autor1,autor2-tytuł) as key
                     self.labels[key] = entry["moods"] + entry["genres"]
 
             print(f"  → Page {page}: {len(songs)} songs processed")
