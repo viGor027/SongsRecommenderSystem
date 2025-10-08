@@ -1,9 +1,10 @@
 import torch.nn as nn
 from architectures.model_components.classifier.base_classifier import BaseClassifier
+from architectures.assemblies.assembly import Assembly
 from typing import Literal
 
 
-class CnnRnnDenseAssembly(nn.Module):
+class CnnRnnDenseAssembly(nn.Module, Assembly):
     """
     A wrapper for convenient model assembling.
 
@@ -51,8 +52,8 @@ class CnnRnnDenseAssembly(nn.Module):
         n_layers_per_block: list[int],
         n_filters_per_block: list[int],
         n_filters_per_skip: list[int],
-        input_len: int,
         n_input_channels: int,
+        input_len: int = -1,
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
     ):
         """

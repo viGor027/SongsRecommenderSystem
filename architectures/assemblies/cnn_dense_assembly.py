@@ -1,9 +1,10 @@
 import torch.nn as nn
 from architectures.model_components.classifier.base_classifier import BaseClassifier
+from architectures.assemblies.assembly import Assembly
 from typing import Literal
 
 
-class CnnDenseAssembly(nn.Module):
+class CnnDenseAssembly(nn.Module, Assembly):
     """
     A wrapper for convenient model assembling.
 
@@ -19,6 +20,8 @@ class CnnDenseAssembly(nn.Module):
     def __init__(self):
         """All the below attributes are set during initialization mentioned in class docstring."""
         super().__init__()
+
+        self.conv_map = {}
 
         self.ConvCls = None
         self.n_blocks = None
@@ -49,8 +52,8 @@ class CnnDenseAssembly(nn.Module):
         n_layers_per_block: list[int],
         n_filters_per_block: list[int],
         n_filters_per_skip: list[int],
-        input_len: int,
         n_input_channels: int,
+        input_len: int = -1,
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
     ):
         """
@@ -192,7 +195,7 @@ class CnnDenseAssembly(nn.Module):
         x = self.classifier(x)
         return x
 
-    def get_instance_config(self):
+    def get_instance_config(self) -> dict:
         """
         Retrieves the configuration of the model instance.
 

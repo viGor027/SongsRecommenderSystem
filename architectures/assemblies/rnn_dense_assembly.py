@@ -1,9 +1,10 @@
 import torch.nn as nn
 from architectures.model_components.classifier.base_classifier import BaseClassifier
+from architectures.assemblies.assembly import Assembly
 from typing import Literal
 
 
-class RnnDenseAssembly(nn.Module):
+class RnnDenseAssembly(nn.Module, Assembly):
     """
     A wrapper for convenient model assembling.
 
