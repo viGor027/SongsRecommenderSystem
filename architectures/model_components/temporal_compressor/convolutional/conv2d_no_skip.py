@@ -26,7 +26,6 @@ class Conv2DBlockNoSkip(nn.Module):
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
         reduction_kernel_size: int = 2,
         reduction_stride: int = 2,
-        input_len: int = -1,
         dtype: torch.dtype = torch.float32
     ):
         """Note: input_len is not used and is present for API consistency"""

@@ -1,10 +1,10 @@
 import torch.nn as nn
 from architectures.model_components.classifier.base_classifier import BaseClassifier
-from architectures.assemblies.assembly import Assembly
+from architectures.assemblies.cnn_assembly_parent import CnnAssemblyParent
 from typing import Literal
 
 
-class CnnRnnDenseAssembly(nn.Module, Assembly):
+class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
     """
     A wrapper for convenient model assembling.
 
@@ -15,114 +15,27 @@ class CnnRnnDenseAssembly(nn.Module, Assembly):
         model.init_seq_encoder(...)
         model.init_classifier(...)
     '''
+
+    **Important note: Do not use with Conv2D convolutional blocks**
     """
 
     def __init__(self):
         """All the below attributes are set during initialization mentioned in class docstring."""
         super().__init__()
 
-        self.ConvCls = None
-        self.n_blocks = None
-        self.n_layers_per_block = None
-        self.n_filters_per_block = None
-        self.n_filters_per_skip = None
-        self.reduction_strat = None
-        self.input_len = None
-        self.n_input_channels = None
-
         self.n_seq_encoder_layers = None
         self.hidden_size = None
         self.seq_encoder_dropout = None
         self.seq_encoder_layer_type = None
 
-        self.n_classifier_layers = None
-        self.n_units_per_classifier_layer = None
-        self.n_classes = None
-
-        self.conv = None
-        self.seq_encoder = None
-        self.classifier = None
-
         self.forward_func = None
 
-    def init_conv(
-        self,
-        ConvCls,
-        n_blocks: int,
-        n_layers_per_block: list[int],
-        n_filters_per_block: list[int],
-        n_filters_per_skip: list[int],
-        n_input_channels: int,
-        input_len: int = -1,
-        reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
-    ):
-        """
-        Args:
-           ConvCls (nn.Module): Convolutional block class used for feature extraction.
-           n_blocks (int): Number of convolutional blocks.
-           n_layers_per_block (list[int]): Number of layers per block.
-           n_filters_per_block (list[int]): Number of filters in each block layer.
-           n_filters_per_skip (list[int]): Number of skip connection filters per block.
-           input_len (int): Length of the input sequence.
-           n_input_channels (int): Number of input channels.
-           reduction_strat (Literal['conv', 'max_pool', 'avg_pool']): reduction strategy used by convolutional blocks
-        """
-        self.ConvCls = ConvCls
-        self.n_blocks = n_blocks
-        self.n_layers_per_block = n_layers_per_block
-        self.n_filters_per_block = n_filters_per_block
-        self.n_filters_per_skip = n_filters_per_skip
-        self.reduction_strat = reduction_strat
-        self.input_len = input_len
-        self.n_input_channels = n_input_channels
-        self.conv = self._build_conv()
-
-    def _build_conv(self):
-        """
-        Builds temporal compressor based on configuration passed to init_conv.
-
-        Returns:
-            nn.Sequential: Sequential container of convolutional blocks.
-        """
-        blocks = [
-            self.ConvCls(
-                block_num=0,
-                input_len=self.input_len,
-                n_input_channels=self.n_input_channels,
-                n_layers=self.n_layers_per_block[0],
-                n_filters_per_layer=self.n_filters_per_block[0],
-                n_filters_skip=self.n_filters_per_skip[0],
-                reduction_strat=self.reduction_strat,
-                kernel_size=2,
-                stride=1,
-            )
-        ]
-        inp_len = self.input_len // 2
-        for i in range(self.n_blocks - 1):
-            blocks.append(
-                self.ConvCls(
-                    block_num=i + 1,
-                    input_len=inp_len,
-                    n_input_channels=self.n_filters_per_skip[i]
-                    + self.n_filters_per_block[i],
-                    n_layers=self.n_layers_per_block[i + 1],
-                    n_filters_per_layer=self.n_filters_per_block[i + 1],
-                    n_filters_skip=self.n_filters_per_skip[i + 1],
-                    reduction_strat=self.reduction_strat,
-                    kernel_size=2,
-                    stride=1,
-                )
-            )
-            inp_len = inp_len // 2
-
-        return nn.Sequential(*blocks)
-
     def init_seq_encoder(
-        self,
-        n_seq_encoder_layers: int,
-        hidden_size: int,
-        dropout: float,
-        layer_type: Literal["gru", "lstm"],
+            self,
+            n_seq_encoder_layers: int,
+            hidden_size: int,
+            dropout: float,
+            layer_type: Literal["gru", "lstm"],
     ):
         """
         Args:
@@ -148,11 +61,16 @@ class CnnRnnDenseAssembly(nn.Module, Assembly):
         Returns:
             nn.Sequential: Sequential container of recurrent layers.
         """
+        n_filters_in_last_skip = (
+            self.n_filters_per_skip[-1]
+            if self.n_filters_per_skip is not None
+            else 0
+        )
         if self.seq_encoder_layer_type == "gru":
             return nn.Sequential(
                 nn.GRU(
                     input_size=self.n_filters_per_block[-1]
-                    + self.n_filters_per_skip[-1],
+                    + n_filters_in_last_skip,
                     hidden_size=self.hidden_size,
                     dropout=self.seq_encoder_dropout,
                     num_layers=self.n_seq_encoder_layers,
@@ -163,7 +81,7 @@ class CnnRnnDenseAssembly(nn.Module, Assembly):
             return nn.Sequential(
                 nn.LSTM(
                     input_size=self.n_filters_per_block[-1]
-                    + self.n_filters_per_skip[-1],
+                    + n_filters_in_last_skip,
                     hidden_size=self.hidden_size,
                     dropout=self.seq_encoder_dropout,
                     num_layers=self.n_seq_encoder_layers,
@@ -172,10 +90,10 @@ class CnnRnnDenseAssembly(nn.Module, Assembly):
             )
 
     def init_classifier(
-        self,
-        n_classifier_layers: int,
-        n_units_per_classifier_layer: list[int],
-        n_classes: int,
+            self,
+            n_classifier_layers: int,
+            n_units_per_classifier_layer: list[int],
+            n_classes: int,
     ):
         """
         Args:
@@ -234,16 +152,7 @@ class CnnRnnDenseAssembly(nn.Module, Assembly):
         """
         return {
             "class_name": self.__class__.__name__,
-            "temporal_compressor": {
-                "ConvCls": str(self.ConvCls).split(".")[-1][:-2],
-                "input_len": self.input_len,
-                "n_input_channels": self.n_input_channels,
-                "n_blocks": self.n_blocks,
-                "n_layers_per_block": self.n_layers_per_block,
-                "n_filters_per_block": self.n_filters_per_block,
-                "n_filters_per_skip": self.n_filters_per_skip,
-                "reduction_strat": self.reduction_strat,
-            },
+            "temporal_compressor": self.get_temporal_compressor_config(),
             "sequence_encoder": {
                 "n_seq_encoder_layers": self.n_seq_encoder_layers,
                 "hidden_size": self.hidden_size,

@@ -23,16 +23,16 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
         n_input_channels: int,
         n_layers: int,
         n_filters_per_layer: int,
-        n_filters_skip: int,
         kernel_size: int,
-        stride: int,
+        stride: int = 1,  # stride 1 due to `same padding` applied
         activation: Literal['relu', 'hardswish'] = 'relu',
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
+        reduction_kernel_size: int = 2,
+        reduction_stride: int = 2,
         dtype: torch.dtype = torch.float32
     ):
         """
         Notes:
-            - n_filters_skip is not used and is passed solely for API consistency.
             - block_num indicates the sequential position of this block in the model.
             - input_len is a Length of the input's temporal dimension, corresponding to L_in in temporal_compressor/note.md.
             - n_input_channels is equal to n_mels if this is the first block in a model.
@@ -50,6 +50,8 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
             activation=activation,
             dilation=True,
             reduction_strat=reduction_strat,
+            reduction_kernel_size=reduction_kernel_size,
+            reduction_stride=reduction_stride,
             dtype=dtype
         )
 

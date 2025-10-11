@@ -156,7 +156,6 @@ class RnnDenseAssembly(nn.Module, Assembly):
         """
         return {
             "class_name": self.__class__.__name__,
-            "temporal_compressor": {"ConvCls": "None"},
             "sequence_encoder": {
                 "n_input_channels": self.n_input_channels,
                 "n_seq_encoder_layers": self.n_seq_encoder_layers,

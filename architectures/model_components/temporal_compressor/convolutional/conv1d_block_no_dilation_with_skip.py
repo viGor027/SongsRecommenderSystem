@@ -29,9 +29,11 @@ class Conv1DBlockNoDilationWithSkip(nn.Module):
         n_filters_per_layer: int,
         n_filters_skip: int,
         kernel_size: int,
-        stride: int,
+        stride: int = 1,  # stride 1 due to `same padding` applied
         activation: Literal['relu', 'hardswish'] = 'relu',
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
+        reduction_kernel_size: int = 2,
+        reduction_stride: int = 2,
         dtype: torch.dtype = torch.float32
     ):
         """
@@ -47,8 +49,8 @@ class Conv1DBlockNoDilationWithSkip(nn.Module):
         self.skip_halving_conv = nn.Conv1d(
             in_channels=n_input_channels,
             out_channels=n_filters_skip,
-            kernel_size=2,
-            stride=2,
+            kernel_size=reduction_kernel_size,
+            stride=reduction_stride,
             dtype=dtype,
         )
 
@@ -61,8 +63,9 @@ class Conv1DBlockNoDilationWithSkip(nn.Module):
             kernel_size=kernel_size,
             stride=stride,
             activation=activation,
-            n_filters_skip=-1,
             reduction_strat=reduction_strat,
+            reduction_kernel_size=reduction_kernel_size,
+            reduction_stride=reduction_stride,
             dtype=dtype
         )
 
