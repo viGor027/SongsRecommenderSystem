@@ -97,10 +97,14 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         import torch
 
         if self.conv is None:
-            raise ValueError("Convolutional part of the network can't be uninitialized.")
+            raise ValueError(
+                "Convolutional part of the network can't be uninitialized."
+            )
         if not (MODEL_READY_DATA_DIR / "train" / "X_0.pt").is_file():
-            raise FileNotFoundError(f"X_0.pt file from {MODEL_READY_DATA_DIR / 'train'}"
-                                    " is required to infer convolution output shape")
+            raise FileNotFoundError(
+                f"X_0.pt file from {MODEL_READY_DATA_DIR / 'train'}"
+                " is required to infer convolution output shape"
+            )
         sample = torch.load(MODEL_READY_DATA_DIR / "train" / "X_0.pt")
         if "Conv2D" in self.ConvCls_name:
             sample = sample.unsqueeze(1)

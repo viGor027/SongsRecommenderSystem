@@ -22,11 +22,11 @@ class Conv2DBlockNoSkip(nn.Module):
         n_filters_per_layer: int,
         kernel_size: int,
         stride: int = 1,
-        activation: Literal['relu', 'hardswish'] = 'relu',
+        activation: Literal["relu", "hardswish"] = "relu",
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
         reduction_kernel_size: int = 2,
         reduction_stride: int = 2,
-        dtype: torch.dtype = torch.float32
+        dtype: torch.dtype = torch.float32,
     ):
         """Note: input_len is not used and is present for API consistency"""
         super().__init__()
@@ -42,7 +42,7 @@ class Conv2DBlockNoSkip(nn.Module):
             reduction_strat=reduction_strat,
             reduction_kernel_size=reduction_kernel_size,
             reduction_stride=reduction_stride,
-            dtype=dtype
+            dtype=dtype,
         )
 
     def forward(self, x):
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         n_layers=2,
         n_filters_per_layer=16,
         kernel_size=3,
-        reduction_strat='conv'
+        reduction_strat="conv",
     )
     sample = model.debug_forward(sample)
     print("Shape after: ", sample.shape)

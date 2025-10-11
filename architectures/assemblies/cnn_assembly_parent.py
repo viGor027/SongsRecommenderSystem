@@ -76,7 +76,7 @@ class CnnAssemblyParent(Assembly):
         self.signature_parameters = inspect.signature(self.ConvCls.__init__).parameters
         self.OPTIONAL_INIT_KWARGS = {
             "n_filters_per_skip": self.n_filters_per_skip,
-            "input_len": self.input_len
+            "input_len": self.input_len,
         }
         self.conv = self._build_conv()
         self.ConvCls_name = self.get_temporal_compressor_config()["ConvCls"]
@@ -90,21 +90,19 @@ class CnnAssemblyParent(Assembly):
         """
         blocks = []
         for i in range(self.n_blocks):
-            blocks.append(
-                self._build_single_block(i=i)
-            )
+            blocks.append(self._build_single_block(i=i))
         return nn.Sequential(*blocks)
 
     def _build_single_block(self, i: int):
         """Takes care on passing or skipping `input_len` and `n_filters_skip` to ConvCls."""
-        n_filters_per_skip: list[int] | None = self.OPTIONAL_INIT_KWARGS["n_filters_per_skip"]
+        n_filters_per_skip: list[int] | None = self.OPTIONAL_INIT_KWARGS[
+            "n_filters_per_skip"
+        ]
         n_filters_skip_from_prev_block = (
-            n_filters_per_skip[i-1]
-            if n_filters_per_skip is not None and i > 0
-            else 0
+            n_filters_per_skip[i - 1] if n_filters_per_skip is not None and i > 0 else 0
         )
         n_input_channels = (
-            n_filters_skip_from_prev_block + self.n_filters_per_block[i-1]
+            n_filters_skip_from_prev_block + self.n_filters_per_block[i - 1]
             if i > 0
             else self.n_input_channels
         )
@@ -112,8 +110,12 @@ class CnnAssemblyParent(Assembly):
             self.ConvCls,
             block_num=i,
             n_input_channels=n_input_channels,
-            n_layers=self.n_layers_per_block[i] if i != 0 else self.n_layers_per_block[0],
-            n_filters_per_layer=self.n_filters_per_block[i] if i != 0 else self.n_filters_per_block[0],
+            n_layers=self.n_layers_per_block[i]
+            if i != 0
+            else self.n_layers_per_block[0],
+            n_filters_per_layer=self.n_filters_per_block[i]
+            if i != 0
+            else self.n_filters_per_block[0],
             reduction_strat=self.reduction_strat,
             reduction_kernel_size=self.reduction_kernel_size,
             reduction_stride=self.reduction_stride,
@@ -121,7 +123,9 @@ class CnnAssemblyParent(Assembly):
             stride=1,
         )
 
-        filtered_optional_kwargs = {"input_len": self.input_len // 2**i} if self.input_len is not None else {}
+        filtered_optional_kwargs = (
+            {"input_len": self.input_len // 2**i} if self.input_len is not None else {}
+        )
         filtered_optional_kwargs = (
             filtered_optional_kwargs | {"n_filters_skip": self.n_filters_per_skip[i]}
             if self.n_filters_per_skip is not None
@@ -146,11 +150,13 @@ class CnnAssemblyParent(Assembly):
             "n_input_channels": self.n_input_channels,
             "n_blocks": self.n_blocks,
             "n_layers_per_block": self.n_layers_per_block,
-            "n_filters_per_block": self.n_filters_per_block}
+            "n_filters_per_block": self.n_filters_per_block,
+        }
         temporal_compressor_base_cfg = (
             temporal_compressor_base_cfg
             if self.n_filters_per_skip is None
-            else temporal_compressor_base_cfg | {"n_filters_per_skip": self.n_filters_per_skip}
+            else temporal_compressor_base_cfg
+            | {"n_filters_per_skip": self.n_filters_per_skip}
         )
         temporal_compressor_base_cfg = temporal_compressor_base_cfg | {
             "reduction_strat": self.reduction_strat,
@@ -158,7 +164,11 @@ class CnnAssemblyParent(Assembly):
         return temporal_compressor_base_cfg
 
     def forward(self, x):
-        raise NotImplementedError("CnnAssemblyParent class is not meant to initialize objects.")
+        raise NotImplementedError(
+            "CnnAssemblyParent class is not meant to initialize objects."
+        )
 
     def get_instance_config(self) -> dict:
-        raise NotImplementedError("CnnAssemblyParent class is not meant to initialize objects.")
+        raise NotImplementedError(
+            "CnnAssemblyParent class is not meant to initialize objects."
+        )

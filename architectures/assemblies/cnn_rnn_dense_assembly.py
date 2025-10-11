@@ -31,11 +31,11 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         self.forward_func = None
 
     def init_seq_encoder(
-            self,
-            n_seq_encoder_layers: int,
-            hidden_size: int,
-            dropout: float,
-            layer_type: Literal["gru", "lstm"],
+        self,
+        n_seq_encoder_layers: int,
+        hidden_size: int,
+        dropout: float,
+        layer_type: Literal["gru", "lstm"],
     ):
         """
         Args:
@@ -62,15 +62,12 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
             nn.Sequential: Sequential container of recurrent layers.
         """
         n_filters_in_last_skip = (
-            self.n_filters_per_skip[-1]
-            if self.n_filters_per_skip is not None
-            else 0
+            self.n_filters_per_skip[-1] if self.n_filters_per_skip is not None else 0
         )
         if self.seq_encoder_layer_type == "gru":
             return nn.Sequential(
                 nn.GRU(
-                    input_size=self.n_filters_per_block[-1]
-                    + n_filters_in_last_skip,
+                    input_size=self.n_filters_per_block[-1] + n_filters_in_last_skip,
                     hidden_size=self.hidden_size,
                     dropout=self.seq_encoder_dropout,
                     num_layers=self.n_seq_encoder_layers,
@@ -80,8 +77,7 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         else:
             return nn.Sequential(
                 nn.LSTM(
-                    input_size=self.n_filters_per_block[-1]
-                    + n_filters_in_last_skip,
+                    input_size=self.n_filters_per_block[-1] + n_filters_in_last_skip,
                     hidden_size=self.hidden_size,
                     dropout=self.seq_encoder_dropout,
                     num_layers=self.n_seq_encoder_layers,
@@ -90,10 +86,10 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
             )
 
     def init_classifier(
-            self,
-            n_classifier_layers: int,
-            n_units_per_classifier_layer: list[int],
-            n_classes: int,
+        self,
+        n_classifier_layers: int,
+        n_units_per_classifier_layer: list[int],
+        n_classes: int,
     ):
         """
         Args:

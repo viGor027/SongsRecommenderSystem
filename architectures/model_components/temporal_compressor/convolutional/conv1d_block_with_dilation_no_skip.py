@@ -25,11 +25,11 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
         n_filters_per_layer: int,
         kernel_size: int,
         stride: int = 1,  # stride 1 due to `same padding` applied
-        activation: Literal['relu', 'hardswish'] = 'relu',
+        activation: Literal["relu", "hardswish"] = "relu",
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
         reduction_kernel_size: int = 2,
         reduction_stride: int = 2,
-        dtype: torch.dtype = torch.float32
+        dtype: torch.dtype = torch.float32,
     ):
         """
         Notes:
@@ -52,7 +52,7 @@ class Conv1DBlockWithDilationNoSkip(nn.Module):
             reduction_strat=reduction_strat,
             reduction_kernel_size=reduction_kernel_size,
             reduction_stride=reduction_stride,
-            dtype=dtype
+            dtype=dtype,
         )
 
     def forward(self, x):

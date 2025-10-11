@@ -25,12 +25,12 @@ class Conv1DBaseBlock(nn.Module):
         n_filters_per_layer: int,
         kernel_size: int,
         stride: int = 1,  # stride 1 due to `same padding` applied
-        activation: Literal['relu', 'hardswish'] = 'relu',
+        activation: Literal["relu", "hardswish"] = "relu",
         dilation: bool = False,
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
         reduction_kernel_size: int = 2,
         reduction_stride: int = 2,
-        dtype: torch.dtype = torch.float32
+        dtype: torch.dtype = torch.float32,
     ):
         """Note: block_num indicates the sequential position of this block in the model."""
 
@@ -57,7 +57,7 @@ class Conv1DBaseBlock(nn.Module):
         )
         self.dtype = dtype
 
-        activation_map = {'relu': nn.ReLU, 'hardswish': nn.Hardswish}
+        activation_map = {"relu": nn.ReLU, "hardswish": nn.Hardswish}
         self.activation = activation_map[activation]
 
         self.block = self.build_conv_block()
@@ -117,17 +117,25 @@ class Conv1DBaseBlock(nn.Module):
             layers.append(
                 (
                     f"block_{self.block_num}_max_pool_reduce",
-                    nn.MaxPool1d(kernel_size=self.reduction_kernel_size, stride=self.reduction_stride),
+                    nn.MaxPool1d(
+                        kernel_size=self.reduction_kernel_size,
+                        stride=self.reduction_stride,
+                    ),
                 )
             )
         elif self.reduction_strat == "avg_pool":
             layers.append(
                 (
                     f"block_{self.block_num}_avg_pool_reduce",
-                    nn.AvgPool1d(kernel_size=self.reduction_kernel_size, stride=self.reduction_stride),
+                    nn.AvgPool1d(
+                        kernel_size=self.reduction_kernel_size,
+                        stride=self.reduction_stride,
+                    ),
                 )
             )
-        layers.append((f"block_{self.block_num}_end_block_activation", self.activation()))
+        layers.append(
+            (f"block_{self.block_num}_end_block_activation", self.activation())
+        )
         return nn.Sequential(OrderedDict(layers))
 
     def _get_padding_layer(self, dilation: int):
