@@ -7,7 +7,7 @@ from architectures import (
     Conv1DBlockWithDilationWithSkip,
     Conv1DBlockNoDilationWithSkip,
     Conv2DBlockNoSkip,
-    Conv2DBlockWithSkip
+    Conv2DBlockWithSkip,
 )
 from typing import TYPE_CHECKING
 
@@ -19,6 +19,7 @@ class ModelInitializer:
     """
     Responsible for initializing Assembly object based on config.
     """
+
     def __init__(self):
         self.assembly_map = {
             "CnnDenseAssembly": CnnDenseAssembly,

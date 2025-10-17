@@ -209,7 +209,9 @@ class DatasetPreprocessor:
         )
 
     @staticmethod
-    def make_set_content_model_ready_without_augmenting(set_type: Literal["train", "valid"]):
+    def make_set_content_model_ready_without_augmenting(
+        set_type: Literal["train", "valid"],
+    ):
         """
         Use to move files from 02_fragmented to 03_model_ready without augmenting data.
 

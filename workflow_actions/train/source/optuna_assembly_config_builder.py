@@ -3,15 +3,15 @@ import optuna
 
 class OptunaAssemblyConfigBuilder:
     def __init__(
-            self,
-            rnn_dense_bounds: dict,
-            cnn_dense_bounds: dict,
-            cnn_rnn_dense_bounds: dict,
-            input_len: int,
-            n_input_channels: int,
-            n_embedding_dims: int,
-            n_classes: int,
-            trial: optuna.Trial | None = None,
+        self,
+        rnn_dense_bounds: dict,
+        cnn_dense_bounds: dict,
+        cnn_rnn_dense_bounds: dict,
+        input_len: int,
+        n_input_channels: int,
+        n_embedding_dims: int,
+        n_classes: int,
+        trial: optuna.Trial | None = None,
     ):
         """
         Notes:
@@ -29,15 +29,12 @@ class OptunaAssemblyConfigBuilder:
         self.n_embedding_dims = n_embedding_dims
         self.n_classes = n_classes
 
-        self.CONV2D_BLOCK_NAMES = [
-            "Conv2DBlockWithSkip",
-            "Conv2DBlockNoSkip"
-        ]
+        self.CONV2D_BLOCK_NAMES = ["Conv2DBlockWithSkip", "Conv2DBlockNoSkip"]
 
         self.CONV_BLOCK_WITHOUT_SKIP_NAMES = [
             "Conv1DBlockWithDilationNoSkip",
             "Conv1DBlockNoDilationNoSkip",
-            "Conv2DBlockNoSkip"
+            "Conv2DBlockNoSkip",
         ]
 
         self.builders_map = {
@@ -61,19 +58,19 @@ class OptunaAssemblyConfigBuilder:
                 "n_input_channels": self.n_input_channels,
                 "n_seq_encoder_layers": self.trial.suggest_int(
                     "n_seq_encoder_layers",
-                    *self.rnn_dense_bounds["n_seq_encoder_layers"]
+                    *self.rnn_dense_bounds["n_seq_encoder_layers"],
                 ),
                 "hidden_size": self.trial.suggest_int(
-                    "hidden_size",
-                    *self.rnn_dense_bounds["hidden_size"]
+                    "hidden_size", *self.rnn_dense_bounds["hidden_size"]
                 ),
                 "dropout": self.trial.suggest_float(
-                    "dropout",
-                    *self.rnn_dense_bounds["dropout"]
+                    "dropout", *self.rnn_dense_bounds["dropout"]
                 ),
-                "layer_type": self.trial.suggest_categorical("layer_type", ["gru", "lstm"]),
+                "layer_type": self.trial.suggest_categorical(
+                    "layer_type", ["gru", "lstm"]
+                ),
             },
-            "classifier": self._get_classifier_config()
+            "classifier": self._get_classifier_config(),
         }
 
     def _build_cnn_dense_cfg(self) -> dict:
@@ -89,56 +86,63 @@ class OptunaAssemblyConfigBuilder:
             ],
         )
         n_blocks = self.trial.suggest_int(
-            "n_blocks",
-            *self.cnn_dense_bounds["n_blocks"]
+            "n_blocks", *self.cnn_dense_bounds["n_blocks"]
         )
         n_seq_encoder_layers = self.trial.suggest_int(
-            "n_seq_encoder_layers",
-            *self.cnn_dense_bounds["n_seq_encoder_layers"]
+            "n_seq_encoder_layers", *self.cnn_dense_bounds["n_seq_encoder_layers"]
         )
         return {
             "class_name": "CnnDenseAssembly",
             "temporal_compressor": {
                 "ConvCls": conv_cls,
-                "input_len": None if conv_cls in self.CONV2D_BLOCK_NAMES else self.input_len,
-                "n_input_channels": 1 if conv_cls in self.CONV2D_BLOCK_NAMES else self.n_input_channels,
+                "input_len": None
+                if conv_cls in self.CONV2D_BLOCK_NAMES
+                else self.input_len,
+                "n_input_channels": 1
+                if conv_cls in self.CONV2D_BLOCK_NAMES
+                else self.n_input_channels,
                 "n_blocks": n_blocks,
                 "n_layers_per_block": [
                     self.trial.suggest_int(
                         f"n_layers_per_block_{i}",
-                        *self.cnn_dense_bounds["n_layers_per_block"]
-                    ) for i in range(n_blocks)
+                        *self.cnn_dense_bounds["n_layers_per_block"],
+                    )
+                    for i in range(n_blocks)
                 ],
                 "n_filters_per_block": [
                     self.trial.suggest_int(
                         f"n_filters_per_block_{i}",
-                        *self.cnn_dense_bounds["n_filters_per_block"]
-                    ) for i in range(n_blocks)
+                        *self.cnn_dense_bounds["n_filters_per_block"],
+                    )
+                    for i in range(n_blocks)
                 ],
                 "n_filters_per_skip": (
-                    None if conv_cls in self.CONV_BLOCK_WITHOUT_SKIP_NAMES
-                    else [self.trial.suggest_int(
-                        f"n_filters_skip_{i}",
-                        *self.cnn_dense_bounds["n_filters_per_skip"]
-                    ) for i in range(n_blocks)
+                    None
+                    if conv_cls in self.CONV_BLOCK_WITHOUT_SKIP_NAMES
+                    else [
+                        self.trial.suggest_int(
+                            f"n_filters_skip_{i}",
+                            *self.cnn_dense_bounds["n_filters_per_skip"],
+                        )
+                        for i in range(n_blocks)
                     ]
                 ),
                 "reduction_strat": self.trial.suggest_categorical(
-                    "reduction_strat",
-                    ["conv", "max_pool", "avg_pool"]
+                    "reduction_strat", ["conv", "max_pool", "avg_pool"]
                 ),
             },
             "sequence_encoder": {
-                "n_seq_encoder_layers":  n_seq_encoder_layers,
+                "n_seq_encoder_layers": n_seq_encoder_layers,
                 "n_units_per_seq_encoder_layer": [
                     self.trial.suggest_int(
                         f"n_units_per_seq_encoder_layer_{i}",
-                        *self.cnn_dense_bounds["n_units_per_seq_encoder_layer"]
-                    ) for i in range(n_seq_encoder_layers)
+                        *self.cnn_dense_bounds["n_units_per_seq_encoder_layer"],
+                    )
+                    for i in range(n_seq_encoder_layers)
                 ],
                 "n_embedding_dims": self.n_embedding_dims,
             },
-            "classifier": self._get_classifier_config()
+            "classifier": self._get_classifier_config(),
         }
 
     def _build_cnn_rnn_dense_cfg(self) -> dict:
@@ -152,8 +156,7 @@ class OptunaAssemblyConfigBuilder:
             ],
         )
         n_blocks = self.trial.suggest_int(
-            "n_blocks",
-            *self.cnn_rnn_dense_bounds["n_blocks"]
+            "n_blocks", *self.cnn_rnn_dense_bounds["n_blocks"]
         )
         return {
             "class_name": "CnnRnnDenseAssembly",
@@ -165,53 +168,55 @@ class OptunaAssemblyConfigBuilder:
                 "n_layers_per_block": [
                     self.trial.suggest_int(
                         f"n_layers_per_block_{i}",
-                        *self.cnn_rnn_dense_bounds["n_layers_per_block"]
-                    ) for i in range(n_blocks)
+                        *self.cnn_rnn_dense_bounds["n_layers_per_block"],
+                    )
+                    for i in range(n_blocks)
                 ],
                 "n_filters_per_block": [
                     self.trial.suggest_int(
                         f"n_filters_per_block_{i}",
-                        *self.cnn_rnn_dense_bounds["n_filters_per_block"]
-                    ) for i in range(n_blocks)
+                        *self.cnn_rnn_dense_bounds["n_filters_per_block"],
+                    )
+                    for i in range(n_blocks)
                 ],
                 "n_filters_per_skip": (
-                    None if conv_cls in self.CONV_BLOCK_WITHOUT_SKIP_NAMES
-                    else [self.trial.suggest_int(
-                        f"n_filters_skip_{i}",
-                        *self.cnn_rnn_dense_bounds["n_filters_per_skip"]
-                    ) for i in range(n_blocks)]
+                    None
+                    if conv_cls in self.CONV_BLOCK_WITHOUT_SKIP_NAMES
+                    else [
+                        self.trial.suggest_int(
+                            f"n_filters_skip_{i}",
+                            *self.cnn_rnn_dense_bounds["n_filters_per_skip"],
+                        )
+                        for i in range(n_blocks)
+                    ]
                 ),
                 "reduction_strat": self.trial.suggest_categorical(
-                    "reduction_strat",
-                    ["conv", "max_pool", "avg_pool"]
+                    "reduction_strat", ["conv", "max_pool", "avg_pool"]
                 ),
             },
             "sequence_encoder": {
                 "n_seq_encoder_layers": self.trial.suggest_int(
                     "n_seq_encoder_layers",
-                    *self.cnn_rnn_dense_bounds["n_seq_encoder_layers"]
+                    *self.cnn_rnn_dense_bounds["n_seq_encoder_layers"],
                 ),
                 "hidden_size": self.trial.suggest_int(
-                    "hidden_size",
-                    *self.cnn_rnn_dense_bounds["hidden_size"]
+                    "hidden_size", *self.cnn_rnn_dense_bounds["hidden_size"]
                 ),
                 "dropout": self.trial.suggest_float(
-                    "dropout",
-                    *self.cnn_rnn_dense_bounds["dropout"]
+                    "dropout", *self.cnn_rnn_dense_bounds["dropout"]
                 ),
-                "layer_type": self.trial.suggest_categorical("layer_type", ["gru", "lstm"]),
+                "layer_type": self.trial.suggest_categorical(
+                    "layer_type", ["gru", "lstm"]
+                ),
             },
-            "classifier": self._get_classifier_config()
+            "classifier": self._get_classifier_config(),
         }
 
     def _get_classifier_config(self) -> dict:
         return {
             "n_classifier_layers": 1,
             "n_units_per_classifier_layer": [
-                self.trial.suggest_int(
-                    "n_units_per_classifier_layer",
-                    64, 768
-                )
+                self.trial.suggest_int("n_units_per_classifier_layer", 64, 768)
             ],
             "n_classes": self.n_classes,
         }
