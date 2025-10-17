@@ -136,8 +136,7 @@ class CnnAssemblyParent(Assembly):
     def get_temporal_compressor_config(self) -> dict:
         # Note:
         # This step-by-step dict construction is intentional — it preserves the key order
-        # in the returned config, matching the original initialization order for clarity,
-        # consistency, and easier config comparisons.
+        # in the returned config, matching the original initialization order for readability.
         temporal_compressor_base_cfg = {
             "ConvCls": str(self.ConvCls).split(".")[-1][:-2],
         }

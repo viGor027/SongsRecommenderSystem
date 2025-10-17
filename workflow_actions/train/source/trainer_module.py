@@ -1,7 +1,9 @@
 import lightning as L
 import torch.nn as nn
 import torch
-from workflow_actions.dataset_preprocessor.dataset_preprocessor import DatasetPreprocessor
+from workflow_actions.dataset_preprocessor.dataset_preprocessor import (
+    DatasetPreprocessor,
+)
 from workflow_actions.paths import DATASET_PREPROCESSOR_CONFIG_PATH
 from workflow_actions.json_handlers import read_json_to_dict
 
@@ -26,14 +28,14 @@ class TrainerModule(L.LightningModule):
         x, y = batch
         y_pred = self(x)
         loss = self.criterion(y_pred, y)
-        self.log("train/loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_pred = self(x)
         loss = self.criterion(y_pred, y)
-        self.log("val/loss", loss, prog_bar=True, on_epoch=True)
+        self.log("val_loss", loss, prog_bar=True, on_epoch=True)
         return loss
 
     def configure_optimizers(self):

@@ -48,11 +48,11 @@ class FragmentsIndex:
 
     def add_song_to_train(self, song_title: str, start_with_idx: int, n_fragments: int):
         for relative_idx in range(n_fragments):
-            self.train_index[start_with_idx+relative_idx] = song_title
+            self.train_index[start_with_idx + relative_idx] = song_title
 
     def add_song_to_valid(self, song_title: str, start_with_idx: int, n_fragments: int):
         for relative_idx in range(n_fragments):
-            self.valid_index[start_with_idx+relative_idx] = song_title
+            self.valid_index[start_with_idx + relative_idx] = song_title
 
     def dump_indexes(self):
         write_dict_to_json(self.train_index, DATA_DIR / "train_index.json")
@@ -97,7 +97,7 @@ class DatasetPreprocessor:
                 self.prepare_single_song_fragments(
                     song_title=song.name,
                     start_indexes=start_indexes,
-                    fragments_index=fragments_index
+                    fragments_index=fragments_index,
                 )
         fragments_index.dump_indexes()
 
@@ -105,7 +105,7 @@ class DatasetPreprocessor:
         self,
         song_title: str,
         start_indexes: StartIndexes,
-        fragments_index: FragmentsIndex
+        fragments_index: FragmentsIndex,
     ):
         """
         Creates song fragments with labels and saves them to 02_fragmented.
@@ -135,7 +135,7 @@ class DatasetPreprocessor:
         fragments_index.add_song_to_train(
             song_title=song_title,
             start_with_idx=start_indexes.start_index_train,
-            n_fragments=n_train_samples
+            n_fragments=n_train_samples,
         )
         start_indexes.start_index_train += n_train_samples
 
@@ -150,7 +150,7 @@ class DatasetPreprocessor:
         fragments_index.add_song_to_valid(
             song_title=song_title,
             start_with_idx=start_indexes.start_index_valid,
-            n_fragments=n_valid_samples
+            n_fragments=n_valid_samples,
         )
         start_indexes.start_index_valid += n_valid_samples
 
@@ -215,7 +215,7 @@ class DatasetPreprocessor:
         )
 
     @staticmethod
-    def make_set_content_model_ready(set_type: Literal["train", "valid"]):
+    def make_set_content_model_ready_without_augmenting(set_type: Literal["train", "valid"]):
         """
         Use to move files from 02_fragmented to 03_model_ready without augmenting data.
 

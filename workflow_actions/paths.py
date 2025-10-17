@@ -20,3 +20,5 @@ WORKFLOWS_ROOT = PROJECT_ROOT / "workflow_actions"
 DATASET_PREPROCESSOR_CONFIG_PATH = (
     WORKFLOWS_ROOT / "dataset_preprocessor" / "dataset_preprocessor_config.json"
 )
+
+TRAINED_MODELS_DIR = PROJECT_ROOT / "models"

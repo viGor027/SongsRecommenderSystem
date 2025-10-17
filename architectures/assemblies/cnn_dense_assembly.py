@@ -111,20 +111,6 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         sample = self.conv(sample)
         self.seq_encoder_input_features = sample.size(1) * sample.size(2)
 
-    def debug_conv(self, x):
-        print("=== Debugging self.conv ===")
-        for i, layer in enumerate(self.conv):
-            print(f"\nLayer {i}: {layer.__class__.__name__}")
-            print(f"Input shape:  {tuple(x.shape)}")
-            try:
-                x = layer(x)
-            except Exception as e:
-                print(f" Error in layer {i} ({layer}): {e}")
-                break
-            print(f"Output shape: {tuple(x.shape)}")
-        print("\n=== End of self.conv ===")
-        return x
-
     def forward(self, x):
         if "Conv2D" in self.ConvCls_name:
             x = x.unsqueeze(1)

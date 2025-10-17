@@ -1,4 +1,6 @@
-from workflow_actions.dataset_preprocessor.dataset_preprocessor import DatasetPreprocessor
+from workflow_actions.dataset_preprocessor.dataset_preprocessor import (
+    DatasetPreprocessor,
+)
 from workflow_actions.paths import DATASET_PREPROCESSOR_CONFIG_PATH
 from workflow_actions.json_handlers import read_json_to_dict
 
