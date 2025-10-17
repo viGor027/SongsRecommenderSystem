@@ -4,10 +4,12 @@ import lightning as L
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from optuna.integration import PyTorchLightningPruningCallback
-from workflow_actions.train.source.trainer_module import TrainerModule
-from workflow_actions.train.source.model_initializer import ModelInitializer
-from workflow_actions.train.source.optuna_assembly_config_builder import OptunaAssemblyConfigBuilder
-from workflow_actions.train.source.dataloading.fragments_dataset import FragmentsDataset
+from workflow_actions.train.source import (
+    TrainerModule,
+    ModelInitializer,
+    OptunaAssemblyConfigBuilder,
+    FragmentsDataset
+)
 from workflow_actions.paths import TRAINED_MODELS_DIR
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner

@@ -30,17 +30,3 @@ def load_single_song_to_torch(
         )
         return wave_resampled, new_sample_rate
     return wave_mono, sr
-
-
-# def save_tensor(path: Path, data: torch.Tensor) -> None:
-#     torch.save(data, path)
-#
-# def load_tensor()
-
-
-if __name__ == "__main__":
-    from workflow_actions.paths import DOWNLOAD_DIR
-
-    print(
-        load_single_song_to_numpy(DOWNLOAD_DIR / "ALEXYS,Strn_-So_Sweet.mp3")[0].dtype
-    )

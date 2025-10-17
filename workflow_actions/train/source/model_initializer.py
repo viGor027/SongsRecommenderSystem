@@ -1,23 +1,13 @@
-from architectures.assemblies.cnn_dense_assembly import CnnDenseAssembly
-from architectures.assemblies.rnn_dense_assembly import RnnDenseAssembly
-from architectures.assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
-from architectures.model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_with_skip import (
-    Conv1DBlockWithDilationWithSkip,
-)
-from architectures.model_components.temporal_compressor.convolutional.conv1d_block_with_dilation_no_skip import (
+from architectures import (
+    CnnRnnDenseAssembly,
+    CnnDenseAssembly,
+    RnnDenseAssembly,
     Conv1DBlockWithDilationNoSkip,
-)
-from architectures.model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_with_skip import (
-    Conv1DBlockNoDilationWithSkip,
-)
-from architectures.model_components.temporal_compressor.convolutional.conv1d_block_no_dilation_no_skip import (
     Conv1DBlockNoDilationNoSkip,
-)
-from architectures.model_components.temporal_compressor.convolutional.conv2d_with_skip import (
-    Conv2DBlockWithSkip,
-)
-from architectures.model_components.temporal_compressor.convolutional.conv2d_no_skip import (
+    Conv1DBlockWithDilationWithSkip,
+    Conv1DBlockNoDilationWithSkip,
     Conv2DBlockNoSkip,
+    Conv2DBlockWithSkip
 )
 from typing import TYPE_CHECKING
 
