@@ -55,7 +55,12 @@ class Conv2DBaseBlock(nn.Module):
         self.block = self.build_conv_block()
 
     def build_conv_block(self):
-        layers = []
+        layers = [
+            (
+                f"block_{self.block_num}_starting_batch_norm",
+                nn.BatchNorm2d(self.n_input_channels),
+            )
+        ]
         for i in range(self.n_layers):
             in_channels = self.n_filters_per_layer if i != 0 else self.n_input_channels
             layers.append(
@@ -72,6 +77,12 @@ class Conv2DBaseBlock(nn.Module):
                 )
             )
             layers.append((f"block_{self.block_num}_activation_{i}", self.activation()))
+            layers.append(
+                (
+                    f"block_{self.block_num}_batch_norm_{i}",
+                    nn.BatchNorm2d(self.n_filters_per_layer),
+                )
+            )
 
         # reduces dimensionality
         if self.reduction_strat == "conv":

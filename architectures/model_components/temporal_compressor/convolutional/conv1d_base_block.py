@@ -63,7 +63,12 @@ class Conv1DBaseBlock(nn.Module):
         self.block = self.build_conv_block()
 
     def build_conv_block(self):
-        layers = []
+        layers = [
+            (
+                f"block_{self.block_num}_starting_batch_norm",
+                nn.BatchNorm1d(self.n_input_channels),
+            )
+        ]
 
         if dil := self._get_block_dilation():
             dilation = dil
@@ -93,6 +98,12 @@ class Conv1DBaseBlock(nn.Module):
                 )
             )
             layers.append((f"block_{self.block_num}_activation_{i}", self.activation()))
+            layers.append(
+                (
+                    f"block_{self.block_num}_batch_norm_{i}",
+                    nn.BatchNorm1d(self.n_filters_per_layer),
+                )
+            )
 
         # divides len of time dimension by two
         if self.reduction_strat == "conv":

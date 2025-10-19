@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from collections import OrderedDict
+from typing import Literal
 
 
 class BaseClassifier(nn.Module):
@@ -14,7 +15,9 @@ class BaseClassifier(nn.Module):
         n_input_features: int,
         units_per_layer: list[int],
         n_classes: int,
+        activation: Literal["relu", "hardswish"] = "relu",
         sigmoid_output: bool = True,
+        dtype: torch.dtype = torch.float32,
     ):
         """
         - n_layers (int): The number of layers in the model.
@@ -32,11 +35,15 @@ class BaseClassifier(nn.Module):
         self.units_per_layer = units_per_layer
         self.n_classes = n_classes
         self.sigmoid_output = sigmoid_output
+        self.dtype = dtype
+
+        activation_map = {"relu": nn.ReLU, "hardswish": nn.Hardswish}
+        self.activation = activation_map[activation]
 
         self.block = self.build()
 
     def build(self):
-        layers = []
+        layers = [("starting_batch_norm", nn.BatchNorm1d(self.n_input_features))]
 
         for i in range(self.n_layers):
             in_features = (
@@ -47,32 +54,20 @@ class BaseClassifier(nn.Module):
                     f"dense_layer_{i}",
                     nn.Linear(
                         in_features=in_features,
-                        out_features=self.units_per_layer[i],
-                        dtype=torch.float32,
+                        out_features=(
+                            self.units_per_layer[i]
+                            if i != self.n_layers - 1
+                            else self.n_classes
+                        ),
+                        dtype=self.dtype,
                     ),
                 )
             )
+            layers.append((f"classifier_activation_{i}", self.activation()))
             layers.append(
                 (f"batch_norm_classifier_{i}", nn.BatchNorm1d(self.units_per_layer[i]))
             )
-            layers.append((f"classifier_activation_{i}", nn.ReLU()))
 
-        in_features = (
-            self.n_input_features
-            if self.n_layers == 0
-            else self.units_per_layer[self.n_layers - 1]
-        )
-        layers.append(
-            (
-                "dense_classifier",
-                nn.Linear(
-                    in_features=in_features,
-                    out_features=self.n_classes,
-                    dtype=torch.float32,
-                ),
-            )
-        )
-        layers.append(("batch_norm_classifier_end", nn.BatchNorm1d(self.n_classes)))
         if self.sigmoid_output:
             layers.append(("classifier_end_activation", nn.Sigmoid()))
 
