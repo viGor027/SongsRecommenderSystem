@@ -1,8 +1,11 @@
 import torch.nn as nn
 from architectures.model_components.classifier.base_classifier import BaseClassifier
 from architectures.assemblies.cnn_assembly_parent import CnnAssemblyParent
-from architectures.model_components.temporal_compressor.convolutional.conv2d_base_block import (
-    Conv2DBaseBlock,
+from architectures.model_components.temporal_compressor.convolutional.conv2d_no_skip import (
+    Conv2DBlockNoSkip,
+)
+from architectures.model_components.temporal_compressor.convolutional.conv2d_with_skip import (
+    Conv2DBlockWithSkip,
 )
 
 
@@ -81,7 +84,9 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
                 " is required to infer convolution output shape"
             )
         sample = torch.load(MODEL_READY_DATA_DIR / "train" / "X_0.pt")
-        if issubclass(self.ConvCls, Conv2DBaseBlock):
+        if issubclass(self.ConvCls, Conv2DBlockNoSkip) or issubclass(
+            self.ConvCls, Conv2DBlockWithSkip
+        ):
             sample = sample.unsqueeze(1)
         sample = self.conv(sample)
         self.seq_encoder_input_features = sample.view(sample.size(0), -1).size(1)
@@ -90,7 +95,9 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         return self.n_embedding_dims
 
     def forward(self, x):
-        if issubclass(self.ConvCls, Conv2DBaseBlock):
+        if issubclass(self.ConvCls, Conv2DBlockNoSkip) or issubclass(
+            self.ConvCls, Conv2DBlockWithSkip
+        ):
             x = x.unsqueeze(1)
         x = self.conv(x)
         x = x.reshape((x.size(0), -1))

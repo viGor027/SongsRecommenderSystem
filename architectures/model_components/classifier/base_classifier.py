@@ -65,7 +65,16 @@ class BaseClassifier(nn.Module):
             )
             layers.append((f"classifier_activation_{i}", self.activation()))
             layers.append(
-                (f"batch_norm_classifier_{i}", nn.BatchNorm1d(self.units_per_layer[i]))
+                (
+                    f"batch_norm_classifier_{i}",
+                    nn.BatchNorm1d(
+                        (
+                            self.units_per_layer[i]
+                            if i != self.n_layers - 1
+                            else self.n_classes
+                        )
+                    ),
+                )
             )
 
         if self.sigmoid_output:
