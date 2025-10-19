@@ -2,6 +2,7 @@ from architectures import (
     CnnRnnDenseAssembly,
     CnnDenseAssembly,
     RnnDenseAssembly,
+    DenseAssembly,
     Conv1DBlockWithDilationNoSkip,
     Conv1DBlockNoDilationNoSkip,
     Conv1DBlockWithDilationWithSkip,
@@ -25,6 +26,7 @@ class ModelInitializer:
             "CnnDenseAssembly": CnnDenseAssembly,
             "RnnDenseAssembly": RnnDenseAssembly,
             "CnnRnnDenseAssembly": CnnRnnDenseAssembly,
+            "DenseAssembly": DenseAssembly,
         }
 
         self.conv_cls_map = {
@@ -40,6 +42,7 @@ class ModelInitializer:
             "CnnDenseAssembly": self._cnn_assembly_init,
             "RnnDenseAssembly": self._rnn_dense_assembly_init,
             "CnnRnnDenseAssembly": self._cnn_assembly_init,
+            "DenseAssembly": self._dense_assembly_init,
         }
 
     def get_pretrained_torch_model(self):
@@ -90,5 +93,19 @@ class ModelInitializer:
         ]
         assembly.init_conv(**temporal_compressor_cfg)
         assembly.init_seq_encoder(**sequence_encoder_cfg)
+        assembly.init_classifier(**classifier_cfg)
+        return assembly
+
+    def _dense_assembly_init(
+        self, assembly_config: dict, assembly_class_name: str
+    ) -> "Assembly":
+        feature_extractor_cfg = assembly_config.get("feature_extractor", {})
+        classifier_cfg = assembly_config.get("classifier", {})
+        if not feature_extractor_cfg:
+            raise KeyError("assembly_config doesn't contain `classifier` key")
+        if not classifier_cfg:
+            raise KeyError("assembly_config doesn't contain `classifier` key")
+        assembly = self.assembly_map[assembly_class_name]()
+        assembly.init_feature_extractor(**feature_extractor_cfg)
         assembly.init_classifier(**classifier_cfg)
         return assembly
