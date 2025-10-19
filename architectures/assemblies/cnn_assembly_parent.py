@@ -1,7 +1,6 @@
 from architectures.assemblies.assembly import Assembly
 from typing import Literal
 import torch.nn as nn
-import inspect
 from functools import partial
 
 
@@ -19,23 +18,10 @@ class CnnAssemblyParent(Assembly):
         self.reduction_kernel_size = None
         self.reduction_stride = None
         self.input_len = None
+        self.conv_activation = None
         self.n_input_channels = None
 
-        self.n_classifier_layers = None
-        self.n_units_per_classifier_layer = None
-        self.n_classes = None
-
-        self.seq_encoder_input_features = None
-
         self.conv = None
-        self.seq_encoder = None
-        self.classifier = None
-
-        self.signature_parameters = None
-
-        self.OPTIONAL_INIT_KWARGS = None
-
-        self.ConvCls_name: str | None = None
 
     def init_conv(
         self,
@@ -46,23 +32,11 @@ class CnnAssemblyParent(Assembly):
         n_filters_per_block: list[int],
         n_filters_per_skip: list[int] | None = None,
         input_len: int | None = None,
+        conv_activation: Literal["relu", "hardswish"] = "relu",
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
         reduction_kernel_size: int = 2,
         reduction_stride: int = 2,
     ):
-        """
-        Args:
-           ConvCls (nn.Module): Convolutional block class used for feature extraction.
-           n_blocks (int): Number of convolutional blocks.
-           n_layers_per_block (list[int]): Number of layers per block.
-           n_filters_per_block (list[int]): Number of filters in each block layer.
-           n_filters_per_skip (list[int] or None): Number of skip connection filters per block.
-           input_len (int): Length of the input sequence.
-           n_input_channels (int): Number of input channels.
-           reduction_strat (Literal['conv', 'max_pool', 'avg_pool']): reduction strategy used by convolutional blocks.
-           reduction_kernel_size (int): kernel used by reduction layer.
-           reduction_stride (int): stride used by reduction layer.
-        """
         self.ConvCls = ConvCls
         self.n_blocks = n_blocks
         self.n_layers_per_block = n_layers_per_block
@@ -72,14 +46,10 @@ class CnnAssemblyParent(Assembly):
         self.reduction_kernel_size = reduction_kernel_size
         self.reduction_stride = reduction_stride
         self.input_len = input_len
+        self.conv_activation = conv_activation
         self.n_input_channels = n_input_channels
-        self.signature_parameters = inspect.signature(self.ConvCls.__init__).parameters
-        self.OPTIONAL_INIT_KWARGS = {
-            "n_filters_per_skip": self.n_filters_per_skip,
-            "input_len": self.input_len,
-        }
+
         self.conv = self._build_conv()
-        self.ConvCls_name = self.get_temporal_compressor_config()["ConvCls"]
 
     def _build_conv(self):
         """
@@ -95,11 +65,10 @@ class CnnAssemblyParent(Assembly):
 
     def _build_single_block(self, i: int):
         """Takes care on passing or skipping `input_len` and `n_filters_skip` to ConvCls."""
-        n_filters_per_skip: list[int] | None = self.OPTIONAL_INIT_KWARGS[
-            "n_filters_per_skip"
-        ]
         n_filters_skip_from_prev_block = (
-            n_filters_per_skip[i - 1] if n_filters_per_skip is not None and i > 0 else 0
+            self.n_filters_per_skip[i - 1]
+            if self.n_filters_per_skip is not None and i > 0
+            else 0
         )
         n_input_channels = (
             n_filters_skip_from_prev_block + self.n_filters_per_block[i - 1]
@@ -116,6 +85,7 @@ class CnnAssemblyParent(Assembly):
             n_filters_per_layer=self.n_filters_per_block[i]
             if i != 0
             else self.n_filters_per_block[0],
+            activation=self.conv_activation,
             reduction_strat=self.reduction_strat,
             reduction_kernel_size=self.reduction_kernel_size,
             reduction_stride=self.reduction_stride,
@@ -138,7 +108,7 @@ class CnnAssemblyParent(Assembly):
         # This step-by-step dict construction is intentional — it preserves the key order
         # in the returned config, matching the original initialization order for readability.
         temporal_compressor_base_cfg = {
-            "ConvCls": str(self.ConvCls).split(".")[-1][:-2],
+            "ConvCls": self.ConvCls.__name__,
         }
         temporal_compressor_base_cfg = (
             temporal_compressor_base_cfg
@@ -159,6 +129,7 @@ class CnnAssemblyParent(Assembly):
         )
         temporal_compressor_base_cfg = temporal_compressor_base_cfg | {
             "reduction_strat": self.reduction_strat,
+            "conv_activation": self.conv_activation,
         }
         return temporal_compressor_base_cfg
 
@@ -168,6 +139,11 @@ class CnnAssemblyParent(Assembly):
         )
 
     def get_instance_config(self) -> dict:
+        raise NotImplementedError(
+            "CnnAssemblyParent class is not meant to initialize objects."
+        )
+
+    def _classifier_in_features(self) -> int:
         raise NotImplementedError(
             "CnnAssemblyParent class is not meant to initialize objects."
         )

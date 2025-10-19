@@ -1,5 +1,4 @@
 import torch.nn as nn
-from architectures.model_components.classifier.base_classifier import BaseClassifier
 from architectures.assemblies.cnn_assembly_parent import CnnAssemblyParent
 from typing import Literal
 
@@ -21,12 +20,15 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
 
     def __init__(self):
         """All the below attributes are set during initialization mentioned in class docstring."""
-        super().__init__()
+        nn.Module.__init__(self)
+        CnnAssemblyParent.__init__(self)
 
         self.n_seq_encoder_layers = None
         self.hidden_size = None
         self.seq_encoder_dropout = None
         self.seq_encoder_layer_type = None
+
+        self.seq_encoder = None
 
         self.forward_func = None
 
@@ -85,39 +87,8 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
                 )
             )
 
-    def init_classifier(
-        self,
-        n_classifier_layers: int,
-        n_units_per_classifier_layer: list[int],
-        n_classes: int,
-    ):
-        """
-        Args:
-            n_classifier_layers (int): Number of layers in the classifier.
-            n_units_per_classifier_layer (list[int]): List of the number of units per classifier layer.
-            n_classes (int): Number of output classes for classification.
-        """
-        self.n_classifier_layers = n_classifier_layers
-        self.n_units_per_classifier_layer = n_units_per_classifier_layer
-        self.n_classes = n_classes
-        self.classifier = self._build_class()
-
-    def _build_class(self):
-        """
-        Builds sequence encoder based on configuration passed to init_classifier.
-
-        Returns:
-            BaseClassifier: Classifier network.
-        """
-        n_input_features = self.hidden_size
-
-        classifier = BaseClassifier(
-            n_layers=self.n_classifier_layers,
-            n_input_features=n_input_features,
-            units_per_layer=self.n_units_per_classifier_layer,
-            n_classes=self.n_classes,
-        )
-        return classifier
+    def _classifier_in_features(self) -> int:
+        return self.hidden_size
 
     def forward(self, x):
         x = self.forward_func(x)
@@ -155,9 +126,5 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
                 "dropout": self.seq_encoder_dropout,
                 "layer_type": self.seq_encoder_layer_type,
             },
-            "classifier": {
-                "n_classifier_layers": self.n_classifier_layers,
-                "n_units_per_classifier_layer": self.n_units_per_classifier_layer,
-                "n_classes": self.n_classes,
-            },
+            "classifier": self.get_classifier_config(),
         }

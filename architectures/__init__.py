@@ -1,6 +1,7 @@
 from .assemblies.rnn_dense_assembly import RnnDenseAssembly
 from .assemblies.cnn_dense_assembly import CnnDenseAssembly
 from .assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
+from .assemblies.dense_assembly import DenseAssembly
 from .model_components.temporal_compressor.convolutional.conv2d_with_skip import (
     Conv2DBlockWithSkip,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "RnnDenseAssembly",
     "CnnDenseAssembly",
     "CnnRnnDenseAssembly",
+    "DenseAssembly",
     "Conv2DBlockWithSkip",
     "Conv2DBlockNoSkip",
     "Conv1DBlockNoDilationNoSkip",

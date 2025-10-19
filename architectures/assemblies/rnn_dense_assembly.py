@@ -1,5 +1,4 @@
 import torch.nn as nn
-from architectures.model_components.classifier.base_classifier import BaseClassifier
 from architectures.assemblies.assembly import Assembly
 from typing import Literal
 
@@ -18,27 +17,18 @@ class RnnDenseAssembly(nn.Module, Assembly):
 
     def __init__(self):
         """All the below attributes are set during initialization mentioned in class docstring."""
-        super().__init__()
+        nn.Module.__init__(self)
+        Assembly.__init__(self)
 
-        self.input_len = None
         self.n_input_channels = None
         self.n_seq_encoder_layers = None
         self.hidden_size = None
         self.seq_encoder_dropout = None
         self.seq_encoder_layer_type = None
 
-        self.n_classifier_layers = None
-        self.n_units_per_classifier_layer = None
-        self.n_classes = None
-
         self.seq_encoder = None
-        self.classifier = None
 
         self.forward_func = None
-
-    def init_conv(self, **kwargs):
-        """Method added for API consistency."""
-        pass
 
     def init_seq_encoder(
         self,
@@ -95,39 +85,8 @@ class RnnDenseAssembly(nn.Module, Assembly):
                 )
             )
 
-    def init_classifier(
-        self,
-        n_classifier_layers: int,
-        n_units_per_classifier_layer: list[int],
-        n_classes: int,
-    ):
-        """
-        Args:
-            n_classifier_layers (int): Number of layers in the classifier.
-            n_units_per_classifier_layer (list[int]): List of the number of units per classifier layer.
-            n_classes (int): Number of output classes for classification.
-        """
-        self.n_classifier_layers = n_classifier_layers
-        self.n_units_per_classifier_layer = n_units_per_classifier_layer
-        self.n_classes = n_classes
-        self.classifier = self._build_class()
-
-    def _build_class(self):
-        """
-        Builds sequence encoder based on configuration passed to init_classifier.
-
-        Returns:
-            BaseClassifier: Classifier network.
-        """
-        n_input_features = self.hidden_size
-
-        classifier = BaseClassifier(
-            n_layers=self.n_classifier_layers,
-            n_input_features=n_input_features,
-            units_per_layer=self.n_units_per_classifier_layer,
-            n_classes=self.n_classes,
-        )
-        return classifier
+    def _classifier_in_features(self) -> int:
+        return self.hidden_size
 
     def forward(self, x):
         x = self.forward_func(x)
@@ -163,9 +122,5 @@ class RnnDenseAssembly(nn.Module, Assembly):
                 "dropout": self.seq_encoder_dropout,
                 "layer_type": self.seq_encoder_layer_type,
             },
-            "classifier": {
-                "n_classifier_layers": self.n_classifier_layers,
-                "n_units_per_classifier_layer": self.n_units_per_classifier_layer,
-                "n_classes": self.n_classes,
-            },
+            "classifier": self.get_classifier_config(),
         }

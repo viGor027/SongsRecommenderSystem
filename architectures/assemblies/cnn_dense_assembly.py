@@ -1,6 +1,9 @@
 import torch.nn as nn
 from architectures.model_components.classifier.base_classifier import BaseClassifier
 from architectures.assemblies.cnn_assembly_parent import CnnAssemblyParent
+from architectures.model_components.temporal_compressor.convolutional.conv2d_base_block import (
+    Conv2DBaseBlock,
+)
 
 
 class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
@@ -9,7 +12,7 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
 
     You must initialize each part of the model before usage:
      '''
-        model = CnnRnnDenseAssembly()
+        model = CnnDenseAssembly()
         model.init_conv(...)
         model.init_seq_encoder(...)
         model.init_classifier(...)
@@ -18,11 +21,15 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
 
     def __init__(self):
         """All the below attributes are set during initialization mentioned in class docstring."""
-        super().__init__()
+        nn.Module.__init__(self)
+        CnnAssemblyParent.__init__(self)
 
+        self.seq_encoder_input_features = None
         self.n_seq_encoder_layers = None
         self.n_units_per_seq_encoder_layer = None
         self.n_embedding_dims = None
+
+        self.seq_encoder = None
 
     def init_seq_encoder(
         self,
@@ -60,38 +67,6 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         )
         return seq_encoder
 
-    def init_classifier(
-        self,
-        n_classifier_layers: int,
-        n_units_per_classifier_layer: list[int],
-        n_classes: int,
-    ):
-        """
-        Args:
-            n_classifier_layers (int): Number of layers in the classifier.
-            n_units_per_classifier_layer (list[int]): List of the number of units per classifier layer.
-            n_classes (int): Number of output classes for classification.
-        """
-        self.n_classifier_layers = n_classifier_layers
-        self.n_units_per_classifier_layer = n_units_per_classifier_layer
-        self.n_classes = n_classes
-        self.classifier = self._build_class()
-
-    def _build_class(self):
-        """
-        Builds sequence encoder based on configuration passed to init_classifier.
-
-        Returns:
-            BaseClassifier: Classifier network.
-        """
-        classifier = BaseClassifier(
-            n_layers=self.n_classifier_layers,
-            n_input_features=self.n_embedding_dims,
-            units_per_layer=self.n_units_per_classifier_layer,
-            n_classes=self.n_classes,
-        )
-        return classifier
-
     def _infer_conv_output_shape(self):
         from workflow_actions.paths import MODEL_READY_DATA_DIR
         import torch
@@ -106,13 +81,16 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
                 " is required to infer convolution output shape"
             )
         sample = torch.load(MODEL_READY_DATA_DIR / "train" / "X_0.pt")
-        if "Conv2D" in self.ConvCls_name:
+        if issubclass(self.ConvCls, Conv2DBaseBlock):
             sample = sample.unsqueeze(1)
         sample = self.conv(sample)
-        self.seq_encoder_input_features = sample.size(1) * sample.size(2)
+        self.seq_encoder_input_features = sample.view(sample.size(0), -1).size(1)
+
+    def _classifier_in_features(self) -> int:
+        return self.n_embedding_dims
 
     def forward(self, x):
-        if "Conv2D" in self.ConvCls_name:
+        if issubclass(self.ConvCls, Conv2DBaseBlock):
             x = x.unsqueeze(1)
         x = self.conv(x)
         x = x.reshape((x.size(0), -1))
@@ -135,9 +113,5 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
                 "n_units_per_seq_encoder_layer": self.n_units_per_seq_encoder_layer,
                 "n_embedding_dims": self.n_embedding_dims,
             },
-            "classifier": {
-                "n_classifier_layers": self.n_classifier_layers,
-                "n_units_per_classifier_layer": self.n_units_per_classifier_layer,
-                "n_classes": self.n_classes,
-            },
+            "classifier": self.get_classifier_config(),
         }
