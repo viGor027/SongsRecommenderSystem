@@ -9,13 +9,15 @@ from workflow_actions.json_handlers import read_json_to_dict
 
 
 class TrainerModule(L.LightningModule):
-    def __init__(self, model, learning_rate=1e-3):
+    def __init__(self, model, learning_rate=1e-3, do_pre_epoch_hook=False):
         super().__init__()
         self.model = model
         self.learning_rate = learning_rate
         self.criterion = nn.BCELoss()  # Binary Cross-Entropy Loss
         self.validation_predictions = []
         self.validation_targets = []
+
+        self.do_pre_epoch_hook = do_pre_epoch_hook
 
         prepare_dataset_cfg = read_json_to_dict(DATASET_PREPROCESSOR_CONFIG_PATH)
         self.dp = DatasetPreprocessor(**prepare_dataset_cfg)
@@ -42,4 +44,5 @@ class TrainerModule(L.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def on_train_epoch_start(self) -> None:
-        self.dp.pre_epoch_augment_hook()
+        if self.do_pre_epoch_hook:
+            self.dp.pre_epoch_augment_hook()

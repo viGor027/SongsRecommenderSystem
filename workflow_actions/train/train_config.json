@@ -1,0 +1,40 @@
+{
+  "run_single_training_config": {
+    "architecture": {
+        "class_name": "DenseAssembly",
+        "feature_extractor": {
+            "n_input_channels": 17280,
+            "n_feature_extractor_layers": 2,
+            "n_units_per_feature_extractor_layer": [256, 128],
+            "feature_extractor_activation": "relu",
+            "n_embedding_dims": 64
+        },
+        "classifier": {
+            "n_classifier_layers": 2,
+            "n_units_per_classifier_layer": [128, 64],
+            "n_classes": 22,
+            "classifier_activation": "relu",
+            "sigmoid_output": true
+        }
+    },
+    "dataloaders": {
+            "batch_size": 32,
+            "num_workers": 0,
+            "pin_memory": false,
+            "drop_last": false
+        },
+    "hparams": {
+            "learning_rate": 1e-3,
+            "epochs": 100
+        },
+    "early_stopping": {
+            "monitor": "val_loss",
+            "mode": "min",
+            "patience": 5
+        },
+    "accelerator": "auto",
+    "precision": "32-true",
+    "project": "WB_tests",
+    "run_name": "single_training_fifth_try"
+  }
+}

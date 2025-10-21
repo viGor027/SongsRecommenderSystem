@@ -49,6 +49,7 @@ class RunSingleTrainingConfig:
     precision: str = "32-true"
     project: str = "default_project"
     run_name: str = "default_run"
+    do_pre_epoch_hook: bool = False
 
 
 @dataclass
@@ -84,9 +85,9 @@ class RunOptunaForAssembliesConfig:
 class Train:
     def __init__(
         self,
-        run_optuna_for_assemblies_config: dict | None,
-        run_single_training_config: dict | None,
-        optuna_assembly_config_builder_params: dict | None,
+        run_optuna_for_assemblies_config: dict | None = None,
+        run_single_training_config: dict | None = None,
+        optuna_assembly_config_builder_params: dict | None = None,
     ):
         Path(TRAINED_MODELS_DIR).mkdir(parents=True, exist_ok=True)
         L.seed_everything(42, workers=True)
@@ -170,6 +171,7 @@ class Train:
         run_name: str,
         accelerator: str = "auto",
         precision: str = "32-true",
+        do_pre_epoch_hook: bool = False,
     ) -> tuple[str, float]:
         """
         Trains a single model and logs to Weights & Biases.
@@ -182,7 +184,11 @@ class Train:
         wandb_logger.experiment.config.update(
             log_to_wandb_as_config, allow_val_change=True
         )
-        module = TrainerModule(model, learning_rate=hparams["learning_rate"])
+        module = TrainerModule(
+            model,
+            learning_rate=hparams["learning_rate"],
+            do_pre_epoch_hook=do_pre_epoch_hook,
+        )
 
         trainer = L.Trainer(
             max_epochs=hparams["epochs"],
@@ -283,6 +289,7 @@ class Train:
                     checkpoint_name=run_name,
                     trial=trial,
                 ),
+                do_pre_epoch_hook=False,
             )
 
             if best_model_path is None or best_val < best_score:
@@ -330,6 +337,7 @@ class Train:
             run_name=self.single_training_config.run_name,
             accelerator=self.single_training_config.accelerator,
             precision=self.single_training_config.precision,
+            do_pre_epoch_hook=self.single_training_config.do_pre_epoch_hook,
         )
         return best_model_path
 
