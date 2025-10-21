@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Literal
 
 
-@dataclass
+@dataclass(frozen=True)
 class RunSingleTrainingConfig:
     architecture: dict = field(default_factory=lambda: {})
     dataloaders: dict = field(
@@ -52,7 +52,7 @@ class RunSingleTrainingConfig:
     do_pre_epoch_hook: bool = False
 
 
-@dataclass
+@dataclass(frozen=True)
 class RunOptunaForAssembliesConfig:
     dataloaders: dict = field(
         default_factory=lambda: {
