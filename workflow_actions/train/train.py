@@ -147,6 +147,7 @@ class Train:
             num_workers=num_workers,
             pin_memory=pin_memory,
             drop_last=drop_last,
+            collate_fn=FragmentsDataset.collate_concat,
         )
 
         valid_loader = DataLoader(
@@ -156,6 +157,7 @@ class Train:
             num_workers=num_workers,
             pin_memory=pin_memory,
             drop_last=False,
+            collate_fn=FragmentsDataset.collate_concat,
         )
         return train_loader, valid_loader
 

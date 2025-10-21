@@ -26,3 +26,10 @@ class FragmentsDataset(Dataset):
         X_path = self.data_path / f"X_{idx}.pt"
         y_path = self.data_path / f"y_{idx}.pt"
         return torch.load(X_path), torch.load(y_path)
+
+    @staticmethod
+    def collate_concat(batch):
+        xs, ys = zip(*batch)
+        xs = torch.cat(xs, dim=0)
+        ys = torch.stack(ys, dim=0)
+        return xs, ys
