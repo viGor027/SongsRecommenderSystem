@@ -1,7 +1,5 @@
 from workflow_actions.paths import (
     DATA_DIR,
-    LABELS_PATH,
-    LABEL_MAPPING_PATH,
     DOWNLOAD_DIR,
     FRAGMENTED_DATA_DIR,
     MODEL_READY_DATA_DIR,
@@ -16,13 +14,14 @@ from workflow_actions.dataset_preprocessor.source import (
     load_numpy_fragment,
     encode_song_labels_to_multi_hot_vector,
 )
-from workflow_actions.json_handlers import write_dict_to_json, read_json_to_dict
-from collections import Counter
+from workflow_actions.json_handlers import write_dict_to_json
 from typing import TYPE_CHECKING, Literal
 import torch
+import numpy as np
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
+from datetime import datetime
 
 if TYPE_CHECKING:
     from workflow_actions.dataset_preprocessor.source.chunker import FragmentedSongNumpy
@@ -36,7 +35,8 @@ class StartIndexes:
 
 @dataclass
 class FragmentsIndex:
-    # maps global fragment number to song title that contains this fragment
+    """Maps global fragment number to song title that contains this fragment."""
+
     train_index: dict[int, str]
     valid_index: dict[int, str]
 
@@ -54,6 +54,25 @@ class FragmentsIndex:
 
 
 class DatasetPreprocessor:
+    """
+    prepare_all_songs_fragments:
+        01_raw -> 02_fragmented (for both 'train' and 'valid'),
+        fragments are stored as .npy files, labels are stored as .pt files,
+        index files are created.
+
+    make_fragments_model_ready_without_augmenting:
+        02_fragmented -> 03_model_ready (for specified set),
+        extracts spectrograms from fragments,
+        y_<number>.pt files are just copied.
+
+    pre_epoch_augment_hook:
+        02_fragmented -> 03_model_ready (only 'train' set),
+        applies augmentation on raw audio, extracts spectrograms, applies augmentation on spectrograms,
+        y_<number>.pt files are just copied.
+
+    For more info see respective functions docstrings.
+    """
+
     def __init__(
         self,
         chunker: dict,
@@ -61,8 +80,8 @@ class DatasetPreprocessor:
         spectrogram_extractor: dict,
         spectrogram_augment: dict,
     ):
-        self.label_mapping = self.create_label_mapping()
-        self.chunker = Chunker(**chunker)
+        self.chunker_cfg = chunker
+        self.chunker = Chunker(**self.chunker_cfg)
         self.raw_augment = RawAugment(**raw_augment)
         self.spectrogram_extractor = SpectrogramExtractor(**spectrogram_extractor)
         self.spectrogram_augment = SpectrogramAugment(**spectrogram_augment)
@@ -80,6 +99,11 @@ class DatasetPreprocessor:
         For each song from 01_raw its labels and fragments are prepared
         and put into respective 02_fragmented directories.
 
+        Fragments are saved as X_<number>.npy files,
+        labels are encoded and saved as y_<number>.pt files.
+
+        train_index.json and valid_index.json are created.
+
         Note: Function first empties train, valid directories of `02_fragmented`.
         """
         self._empty_folder(FRAGMENTED_DATA_DIR / "train")
@@ -88,27 +112,80 @@ class DatasetPreprocessor:
         fragments_index = FragmentsIndex(train_index={}, valid_index={})
         for song in DOWNLOAD_DIR.iterdir():
             if song.is_file():
-                self.prepare_single_song_fragments(
+                self._prepare_single_song_fragments(
                     song_title=song.name,
                     start_indexes=start_indexes,
                     fragments_index=fragments_index,
                 )
         fragments_index.dump_indexes()
+        self._create_fragmentation_stamp()
 
-    def prepare_single_song_fragments(
+    def pre_epoch_augment_hook(self):
+        """
+        Is called at the beginning of every epoch;
+        takes fragments from 02_fragmented/train,
+        applies augmentations on raw fragment,
+        extracts mel spectrogram,
+        applies augmentations on mel spectrograms,
+        saves spectrogram fragments to 03_model_ready/train.
+
+        Note:
+            Function empties 03_model_ready/train directory
+            at the beginning of each call.
+        """
+        # TODO: Make it parallel
+        self._empty_folder(MODEL_READY_DATA_DIR / "train")
+        for fragment in (FRAGMENTED_DATA_DIR / "train").iterdir():
+            if (
+                fragment.is_file()
+                and fragment.name.startswith("X_")
+                and fragment.name.endswith(".npy")
+            ):
+                self._make_single_fragment_model_ready(fragment_fname=fragment.name)
+
+    def make_fragments_model_ready_without_augmenting(
+        self,
+        set_type: Literal["train", "valid"],
+    ):
+        """
+        Use to move files from 02_fragmented to 03_model_ready without augmenting data.
+        For every song fragment from 02_fragmented spectrogram is extracted and saved to 03_model_ready.
+
+        set_type (str): Which set will be moved to 03_model_ready, either 'train' or 'valid'.
+
+        Notes:
+            - MODEL_READY_DATA_DIR / set_type is first emptied.
+            - y_<number>.pt files are just copied.
+        """
+        self._empty_folder(MODEL_READY_DATA_DIR / set_type)
+        for fragment_path in (FRAGMENTED_DATA_DIR / set_type).iterdir():
+            if fragment_path.name.endswith(".npy"):
+                loaded_numpy_fragment = load_numpy_fragment(path=fragment_path)
+                spectrogram = self.spectrogram_extractor([loaded_numpy_fragment])[0]
+                spectrogram_torch = torch.from_numpy(
+                    spectrogram.astype(np.float32)
+                ).unsqueeze(0)
+                tensor_name = fragment_path.name.replace(".npy", ".pt")
+                torch.save(
+                    spectrogram_torch, MODEL_READY_DATA_DIR / set_type / tensor_name
+                )
+            else:
+                shutil.copy(
+                    fragment_path,
+                    MODEL_READY_DATA_DIR / set_type / fragment_path.name,
+                )
+
+    def _prepare_single_song_fragments(
         self,
         song_title: str,
         start_indexes: StartIndexes,
         fragments_index: FragmentsIndex,
     ):
         """
-        Creates song fragments with labels and saves them to 02_fragmented.
+        Creates song fragments, encodes its labels and saves them to 02_fragmented
+        for train and valid sets.
 
-        **Pass `song_title` with extension.**
-
-        start_w_index_train/valid (int):
-            The first number we should start saving current song fragments with.
-
+        Note: **Pass `song_title` with extension.**
         """
         song, sample_rate = load_single_song_to_numpy(path=DOWNLOAD_DIR / song_title)
         fragmented_song: "FragmentedSongNumpy" = self.chunker.make_fragments_from_numpy(
@@ -148,35 +225,14 @@ class DatasetPreprocessor:
         )
         start_indexes.start_index_valid += n_valid_samples
 
-    def pre_epoch_augment_hook(self):
-        """
-        Is called at the beginning of every epoch;
-        takes fragments from 02_fragmented/train,
-        applies augmentations on raw fragment,
-        extracts mel spectrogram,
-        applies augmentations on mel spectrograms,
-        saves spectrogram fragments to 03_model_ready/train.
-
-        Note:
-            Function empties 03_model_ready/train directory
-            at the beginning of each call.
-        """
-        # TODO: Make it parallel
-        self._empty_folder(MODEL_READY_DATA_DIR / "train")
-        for fragment in (FRAGMENTED_DATA_DIR / "train").iterdir():
-            if (
-                fragment.is_file()
-                and fragment.name.startswith("X_")
-                and fragment.name.endswith(".npy")
-            ):
-                self.make_single_fragment_model_ready(fragment_fname=fragment.name)
-
-    def make_single_fragment_model_ready(self, fragment_fname: str):
+    def _make_single_fragment_model_ready(self, fragment_fname: str):
         """
         Reads file `fragment_fname` from 02_fragmented/train,
         augments it and saves it into  03_model_ready/train.
 
         fragment_fname (str): fragment name like X_<number>.npy
+
+        Note: y_<number>.pt files are just copied.
         """
         if not all([substr in fragment_fname for substr in ["X", "_", ".npy"]]):
             raise ValueError(
@@ -208,29 +264,11 @@ class DatasetPreprocessor:
             MODEL_READY_DATA_DIR / "train" / y_fname,
         )
 
-    @staticmethod
-    def make_set_content_model_ready_without_augmenting(
-        set_type: Literal["train", "valid"],
-    ):
-        """
-        Use to move files from 02_fragmented to 03_model_ready without augmenting data.
-
-        Notes:
-            - Function converts .npy files from 02_fragmented to .pt files.
-            - X_<number>.npy files are converted to .pt files
-            - y_<number>.pt files are just copied.
-        """
-        for fragment_path in (FRAGMENTED_DATA_DIR / set_type).iterdir():
-            if fragment_path.name.endswith(".npy"):
-                loaded_numpy_file = load_numpy_fragment(path=fragment_path)
-                tensor = torch.from_numpy(loaded_numpy_file)
-                tensor_name = fragment_path.name.replace(".npy", ".pt")
-                torch.save(tensor, MODEL_READY_DATA_DIR / set_type / tensor_name)
-            else:
-                shutil.copy(
-                    fragment_path,
-                    MODEL_READY_DATA_DIR / set_type / fragment_path.name,
-                )
+    def _create_fragmentation_stamp(self):
+        now = datetime.now()
+        formatted_time = now.strftime("%Y/%m/%d_%H-%M-%S")
+        fragmentation_stamp = {**self.chunker_cfg, "time_stamp": formatted_time}
+        write_dict_to_json(fragmentation_stamp, FRAGMENTED_DATA_DIR)
 
     @staticmethod
     def _empty_folder(path: Path):
@@ -260,19 +298,3 @@ class DatasetPreprocessor:
                 encoded_song_tags,
                 FRAGMENTED_DATA_DIR / set_type / f"y_{absolute_fragment_number}.pt",
             )
-
-    @staticmethod
-    def create_label_mapping() -> dict[int, str]:
-        """Creates mapping tag -> number for every tag present in labels.json"""
-        if not LABELS_PATH.exists():
-            raise FileExistsError("Labels file labels.json doesn't exist.")
-
-        song_to_labels = read_json_to_dict(LABELS_PATH)
-        all_tags = []
-        for tags_list in song_to_labels.values():
-            all_tags.extend(tags_list)
-        tags = Counter(all_tags).keys()
-
-        mapping = {label: idx for idx, label in enumerate(sorted(list(tags)))}
-        write_dict_to_json(data=mapping, file_path=LABEL_MAPPING_PATH)
-        return mapping
