@@ -195,15 +195,7 @@ class Train:
         trainer = L.Trainer(
             max_epochs=hparams["epochs"],
             logger=wandb_logger,
-            callbacks=[
-                callbacks["early_stopping"],
-                callbacks["model_checkpoint"],
-                *(
-                    [callbacks["optuna_pruning"]]
-                    if "optuna_pruning" in callbacks
-                    else []
-                ),
-            ],
+            callbacks=list(callbacks.values()),
             deterministic=True,
             accelerator=accelerator,
             precision=precision,
@@ -246,12 +238,8 @@ class Train:
 
             self._optuna_assembly_config_builder.set_trial(trial)
 
-            assembly_type = trial.suggest_categorical(
-                "assembly_type",
-                ["CnnDenseAssembly", "RnnDenseAssembly", "CnnRnnDenseAssembly"],
-            )
-            assembly_cfg = self._optuna_assembly_config_builder.build_assembly_config(
-                assembly_type=assembly_type
+            assembly_cfg, assembly_type = (
+                self._optuna_assembly_config_builder.build_assembly_config()
             )
             model = self.model_initializer.get_model_assembly(assembly_cfg)
 
@@ -361,10 +349,10 @@ class Train:
                 + ":.4f}"
             ),
         )
-        callbacks = {
-            "early_stopping": es,
-            "model_checkpoint": ckpt,
-        }
+        callbacks = {"early_stopping": es}
+        callbacks = (
+            callbacks | {"model_checkpoint": ckpt} if trial is None else callbacks
+        )
         pruning = (
             PyTorchLightningPruningCallback(trial, early_stopping_cfg["monitor"])
             if trial is not None
@@ -407,16 +395,21 @@ class Train:
         batch_size: int | None = None,
         learning_rate: float | None = None,
     ):
-        if log_type == "optuna":
-            return {
+        configs_map = {
+            "optuna": {
                 "learning_rate": learning_rate,
                 "batch_size": batch_size,
                 "pruner": self.optuna_config.pruner,
                 "sampler": self.optuna_config.sampler,
                 "study_name": self.optuna_config.study_name,
             }
-        if log_type == "single":
-            return {
+            if self.optuna_config is not None
+            else {},
+            "single": {
                 "batch_size": self.single_training_config.dataloaders["batch_size"],
                 "run_name": self.single_training_config.run_name,
             }
+            if self.single_training_config is not None
+            else {},
+        }
+        return configs_map[log_type]

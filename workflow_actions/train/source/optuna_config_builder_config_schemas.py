@@ -66,3 +66,45 @@ class DenseBounds:
             self.n_units_per_feature_extractor_layer,
             "n_units_per_feature_extractor_layer",
         )
+
+
+@dataclass(frozen=True)
+class Blocks:
+    """
+    Full list of blocks fo CnnDenseAssembly:
+        [
+            "Conv1DBlockWithDilationWithSkip",
+            "Conv1DBlockWithDilationNoSkip",
+            "Conv1DBlockNoDilationWithSkip",
+            "Conv1DBlockNoDilationNoSkip",
+            "Conv2DBlockWithSkip",
+            "Conv2DBlockNoSkip",
+        ]
+
+    Full list of blocks for CnnRnnDenseAssembly:
+        [
+            "Conv1DBlockWithDilationWithSkip",
+            "Conv1DBlockWithDilationNoSkip",
+            "Conv1DBlockNoDilationWithSkip",
+            "Conv1DBlockNoDilationNoSkip",
+        ]
+
+    If optuna run is not searching through the given architecture put None to its blocks.
+    """
+
+    cnn_dense_assembly_blocks: list[str] | None
+    cnn_rnn_dense_assembly_blocks: list[str] | None
+
+    def __post_init__(self):
+        if self.cnn_rnn_dense_assembly_blocks is not None and not len(
+            self.cnn_rnn_dense_assembly_blocks
+        ):
+            raise ValueError(
+                "cnn_rnn__dense_assembly_blocks has to contain at least one block."
+            )
+        if self.cnn_dense_assembly_blocks is not None and not len(
+            self.cnn_dense_assembly_blocks
+        ):
+            raise ValueError(
+                "cnn_rnn__dense_assembly_blocks has to contain at least one block."
+            )

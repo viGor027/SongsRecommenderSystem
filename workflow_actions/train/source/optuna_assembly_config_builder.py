@@ -1,19 +1,22 @@
 import optuna
-from workflow_actions.train.source.optuna_config_builder_bounds import (
+from workflow_actions.train.source.optuna_config_builder_config_schemas import (
     RnnDenseBounds,
     CnnDenseBounds,
     CnnRnnDenseBounds,
     DenseBounds,
+    Blocks,
 )
 
 
 class OptunaAssemblyConfigBuilder:
     def __init__(
         self,
-        rnn_dense_bounds: dict,
-        cnn_dense_bounds: dict,
-        cnn_rnn_dense_bounds: dict,
-        dense_bounds: dict,
+        rnn_dense_bounds: dict | None,
+        cnn_dense_bounds: dict | None,
+        cnn_rnn_dense_bounds: dict | None,
+        dense_bounds: dict | None,
+        blocks: dict,
+        assemblies: list[str],
         input_len: int,
         n_input_channels: int,
         n_embedding_dims: int,
@@ -22,6 +25,7 @@ class OptunaAssemblyConfigBuilder:
     ):
         """
         Notes:
+            - assemblies is a list of assemblies assembly for trial will be chosen from
             - n_classes depends on the data
             - n_input_channels is used for RnnDenseAssembly and CnnDenseAssembly when Conv1D blocks are used
             - input_len is used if Conv1D blocks are used
@@ -31,15 +35,29 @@ class OptunaAssemblyConfigBuilder:
         self.trial = trial
 
         # Assemblies bounds
-        self.rnn_dense_bounds = RnnDenseBounds(**rnn_dense_bounds)
-        self.cnn_dense_bounds = CnnDenseBounds(**cnn_dense_bounds)
-        self.cnn_rnn_dense_bounds = CnnRnnDenseBounds(**cnn_rnn_dense_bounds)
-        self.dense_bounds = DenseBounds(**dense_bounds)
+        self.rnn_dense_bounds = (
+            RnnDenseBounds(**rnn_dense_bounds) if rnn_dense_bounds is not None else None
+        )
+        self.cnn_dense_bounds = (
+            CnnDenseBounds(**cnn_dense_bounds) if cnn_dense_bounds is not None else None
+        )
+        self.cnn_rnn_dense_bounds = (
+            CnnRnnDenseBounds(**cnn_rnn_dense_bounds)
+            if cnn_rnn_dense_bounds is not None
+            else None
+        )
+        self.dense_bounds = (
+            DenseBounds(**dense_bounds) if dense_bounds is not None else None
+        )
+
+        self.blocks = Blocks(**blocks)
 
         self.input_len = input_len
         self.n_input_channels = n_input_channels
         self.n_embedding_dims = n_embedding_dims
         self.n_classes = n_classes
+
+        self.available_assemblies = assemblies
 
         self.CONV2D_BLOCK_NAMES = ["Conv2DBlockWithSkip", "Conv2DBlockNoSkip"]
 
@@ -58,49 +76,53 @@ class OptunaAssemblyConfigBuilder:
             "DenseAssembly": self._build_dense_cfg,
         }
 
-    def build_assembly_config(self, assembly_type: str):
+    def build_assembly_config(self) -> tuple[dict, str]:
+        """returns assembly config and assembly_type"""
         if self.trial is None:
             raise ValueError("trial can't be None.")
-        return self.builders_map[assembly_type]()
+        assembly_type = self.trial.suggest_categorical(
+            "assembly_type",
+            self.available_assemblies,
+            # ["CnnDenseAssembly", "RnnDenseAssembly", "CnnRnnDenseAssembly", "DenseAssembly"],
+        )
+        return self.builders_map[assembly_type](
+            assembly_name=assembly_type
+        ), assembly_type
 
     def set_trial(self, trial: optuna.Trial):
         self.trial = trial
 
-    def _build_rnn_dense_cfg(self) -> dict:
+    def _build_rnn_dense_cfg(self, assembly_name: str) -> dict:
         return {
             "class_name": "RnnDenseAssembly",
             "sequence_encoder": {
                 "n_input_channels": self.n_input_channels,
                 "n_seq_encoder_layers": self.trial.suggest_int(
-                    "n_seq_encoder_layers",
+                    f"{assembly_name}/n_seq_encoder_layers",
                     *self.rnn_dense_bounds.n_seq_encoder_layers,
                 ),
                 "hidden_size": self.n_embedding_dims,
                 "dropout": self.trial.suggest_float(
-                    "dropout", *self.rnn_dense_bounds.dropout
+                    f"{assembly_name}/dropout", *self.rnn_dense_bounds.dropout
                 ),
                 "layer_type": self.trial.suggest_categorical(
-                    "layer_type", ["gru", "lstm"]
+                    f"{assembly_name}/layer_type", ["gru", "lstm"]
                 ),
             },
-            "classifier": self._get_classifier_config(),
+            "classifier": self._get_classifier_config(assembly_name=assembly_name),
         }
 
-    def _build_cnn_dense_cfg(self) -> dict:
+    def _build_cnn_dense_cfg(self, assembly_name: str) -> dict:
         conv_cls = self.trial.suggest_categorical(
-            "ConvCls",
-            [
-                "Conv1DBlockWithDilationWithSkip",
-                "Conv1DBlockWithDilationNoSkip",
-                "Conv1DBlockNoDilationWithSkip",
-                "Conv1DBlockNoDilationNoSkip",
-                "Conv2DBlockWithSkip",
-                "Conv2DBlockNoSkip",
-            ],
+            f"{assembly_name}/ConvCls",
+            self.blocks.cnn_dense_assembly_blocks,
         )
-        n_blocks = self.trial.suggest_int("n_blocks", *self.cnn_dense_bounds.n_blocks)
+        n_blocks = self.trial.suggest_int(
+            f"{assembly_name}/n_blocks", *self.cnn_dense_bounds.n_blocks
+        )
         n_seq_encoder_layers = self.trial.suggest_int(
-            "n_seq_encoder_layers", *self.cnn_dense_bounds.n_seq_encoder_layers
+            f"{assembly_name}/n_seq_encoder_layers",
+            *self.cnn_dense_bounds.n_seq_encoder_layers,
         )
         return {
             "class_name": "CnnDenseAssembly",
@@ -115,14 +137,14 @@ class OptunaAssemblyConfigBuilder:
                 "n_blocks": n_blocks,
                 "n_layers_per_block": [
                     self.trial.suggest_int(
-                        f"n_layers_per_block_{i}",
+                        f"{assembly_name}/n_layers_per_block_{i}",
                         *self.cnn_dense_bounds.n_layers_per_block,
                     )
                     for i in range(n_blocks)
                 ],
                 "n_filters_per_block": [
                     self.trial.suggest_int(
-                        f"n_filters_per_block_{i}",
+                        f"{assembly_name}/n_filters_per_block_{i}",
                         *self.cnn_dense_bounds.n_filters_per_block,
                     )
                     for i in range(n_blocks)
@@ -132,45 +154,40 @@ class OptunaAssemblyConfigBuilder:
                     if conv_cls in self.CONV_BLOCK_WITHOUT_SKIP_NAMES
                     else [
                         self.trial.suggest_int(
-                            f"n_filters_skip_{i}",
+                            f"{assembly_name}/n_filters_skip_{i}",
                             *self.cnn_dense_bounds.n_filters_per_skip,
                         )
                         for i in range(n_blocks)
                     ]
                 ),
                 "conv_activation": self.trial.suggest_categorical(
-                    "conv_activation", self.ACTIVATIONS
+                    f"{assembly_name}/conv_activation", self.ACTIVATIONS
                 ),
                 "reduction_strat": self.trial.suggest_categorical(
-                    "reduction_strat", ["conv", "max_pool", "avg_pool"]
+                    f"{assembly_name}/reduction_strat", ["conv", "max_pool", "avg_pool"]
                 ),
             },
             "sequence_encoder": {
                 "n_seq_encoder_layers": n_seq_encoder_layers,
                 "n_units_per_seq_encoder_layer": [
                     self.trial.suggest_int(
-                        f"n_units_per_seq_encoder_layer_{i}",
+                        f"{assembly_name}/n_units_per_seq_encoder_layer_{i}",
                         *self.cnn_dense_bounds.n_units_per_seq_encoder_layer,
                     )
                     for i in range(n_seq_encoder_layers)
                 ],
                 "n_embedding_dims": self.n_embedding_dims,
             },
-            "classifier": self._get_classifier_config(),
+            "classifier": self._get_classifier_config(assembly_name=assembly_name),
         }
 
-    def _build_cnn_rnn_dense_cfg(self) -> dict:
+    def _build_cnn_rnn_dense_cfg(self, assembly_name: str) -> dict:
         conv_cls = self.trial.suggest_categorical(
-            "ConvCls",
-            [
-                "Conv1DBlockWithDilationWithSkip",
-                "Conv1DBlockWithDilationNoSkip",
-                "Conv1DBlockNoDilationWithSkip",
-                "Conv1DBlockNoDilationNoSkip",
-            ],
+            f"{assembly_name}/ConvCls",
+            self.blocks.cnn_rnn_dense_assembly_blocks,
         )
         n_blocks = self.trial.suggest_int(
-            "n_blocks", *self.cnn_rnn_dense_bounds.n_blocks
+            f"{assembly_name}/n_blocks", *self.cnn_rnn_dense_bounds.n_blocks
         )
         return {
             "class_name": "CnnRnnDenseAssembly",
@@ -181,14 +198,14 @@ class OptunaAssemblyConfigBuilder:
                 "n_blocks": n_blocks,
                 "n_layers_per_block": [
                     self.trial.suggest_int(
-                        f"n_layers_per_block_{i}",
+                        f"{assembly_name}/n_layers_per_block_{i}",
                         *self.cnn_rnn_dense_bounds.n_layers_per_block,
                     )
                     for i in range(n_blocks)
                 ],
                 "n_filters_per_block": [
                     self.trial.suggest_int(
-                        f"n_filters_per_block_{i}",
+                        f"{assembly_name}/n_filters_per_block_{i}",
                         *self.cnn_rnn_dense_bounds.n_filters_per_block,
                     )
                     for i in range(n_blocks)
@@ -198,38 +215,39 @@ class OptunaAssemblyConfigBuilder:
                     if conv_cls in self.CONV_BLOCK_WITHOUT_SKIP_NAMES
                     else [
                         self.trial.suggest_int(
-                            f"n_filters_skip_{i}",
+                            f"{assembly_name}/n_filters_skip_{i}",
                             *self.cnn_rnn_dense_bounds.n_filters_per_skip,
                         )
                         for i in range(n_blocks)
                     ]
                 ),
                 "conv_activation": self.trial.suggest_categorical(
-                    "conv_activation", self.ACTIVATIONS
+                    f"{assembly_name}/conv_activation", self.ACTIVATIONS
                 ),
                 "reduction_strat": self.trial.suggest_categorical(
-                    "reduction_strat", ["conv", "max_pool", "avg_pool"]
+                    f"{assembly_name}/reduction_strat", ["conv", "max_pool", "avg_pool"]
                 ),
             },
             "sequence_encoder": {
                 "n_seq_encoder_layers": self.trial.suggest_int(
-                    "n_seq_encoder_layers",
+                    f"{assembly_name}/n_seq_encoder_layers",
                     *self.cnn_rnn_dense_bounds.n_seq_encoder_layers,
                 ),
                 "hidden_size": self.n_embedding_dims,
                 "dropout": self.trial.suggest_float(
-                    "dropout", *self.cnn_rnn_dense_bounds.dropout
+                    f"{assembly_name}/dropout", *self.cnn_rnn_dense_bounds.dropout
                 ),
                 "layer_type": self.trial.suggest_categorical(
-                    "layer_type", ["gru", "lstm"]
+                    f"{assembly_name}/layer_type", ["gru", "lstm"]
                 ),
             },
-            "classifier": self._get_classifier_config(),
+            "classifier": self._get_classifier_config(assembly_name=assembly_name),
         }
 
-    def _build_dense_cfg(self):
+    def _build_dense_cfg(self, assembly_name: str):
         n_feature_extractor_layers = self.trial.suggest_int(
-            "n_feature_extractor_layers", *self.dense_bounds.n_feature_extractor_layers
+            f"{assembly_name}/n_feature_extractor_layers",
+            *self.dense_bounds.n_feature_extractor_layers,
         )
         return {
             "class_name": "DenseAssembly",
@@ -238,25 +256,25 @@ class OptunaAssemblyConfigBuilder:
                 "n_feature_extractor_layers": n_feature_extractor_layers,
                 "n_units_per_feature_extractor_layer": [
                     self.trial.suggest_int(
-                        f"n_units_per_feature_extractor_layer_{i}",
+                        f"{assembly_name}/n_units_per_feature_extractor_layer_{i}",
                         *self.dense_bounds.n_units_per_feature_extractor_layer,
                     )
                     for i in range(n_feature_extractor_layers - 1)
                 ],
                 "n_embedding_dims": self.n_embedding_dims,
                 "feature_extractor_activation": self.trial.suggest_categorical(
-                    "feature_extractor_activation", self.ACTIVATIONS
+                    f"{assembly_name}/feature_extractor_activation", self.ACTIVATIONS
                 ),
             },
-            "classifier": self._get_classifier_config(),
+            "classifier": self._get_classifier_config(assembly_name=assembly_name),
         }
 
-    def _get_classifier_config(self) -> dict:
+    def _get_classifier_config(self, assembly_name: str) -> dict:
         return {
             "n_classifier_layers": 1,
             "n_units_per_classifier_layer": [],
             "classifier_activation": self.trial.suggest_categorical(
-                "classifier_activation", self.ACTIVATIONS
+                f"{assembly_name}/classifier_activation", self.ACTIVATIONS
             ),
             "n_classes": self.n_classes,
         }
