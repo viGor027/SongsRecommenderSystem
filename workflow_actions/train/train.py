@@ -174,7 +174,7 @@ class Train:
         accelerator: str = "auto",
         precision: str = "32-true",
         do_pre_epoch_hook: bool = False,
-    ) -> tuple[str, float]:
+    ) -> tuple[str | None, float]:
         """
         Trains a single model and logs to Weights & Biases.
         """
@@ -204,7 +204,7 @@ class Train:
 
         try:
             trainer.fit(module, train_dataloader, val_dataloader)
-            best_val = callbacks["model_checkpoint"].best_model_score
+            best_val = callbacks["early_stopping"].best_score
             best_val = float(best_val.item()) if best_val is not None else float("inf")
             wandb_logger.experiment.summary["best_val_loss"] = best_val
         except optuna.TrialPruned as e:
@@ -220,7 +220,12 @@ class Train:
         finally:
             wandb.finish()
 
-        return callbacks["model_checkpoint"].best_model_path, best_val
+        best_model_path = (
+            callbacks["model_checkpoint"].best_model_path
+            if callbacks.get("model_checkpoint", False)
+            else None
+        )
+        return best_model_path, best_val
 
     def run_optuna_for_assemblies(self):
         if self.optuna_config is None or self._optuna_assembly_config_builder is None:
