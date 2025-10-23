@@ -1,4 +1,4 @@
-from train import Train
+from workflow_actions.train.train import Train
 from workflow_actions.paths import TRAIN_CONFIG_PATH
 from workflow_actions.json_handlers import read_json_to_dict
 
