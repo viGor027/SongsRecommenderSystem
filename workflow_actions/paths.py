@@ -14,6 +14,8 @@ LABELS_DIR = RAW_DATA_DIR / "labels"
 
 LABELS_PATH = LABELS_DIR / "labels.json"
 LABEL_MAPPING_PATH = LABELS_DIR / "label_mapping.json"
+SCRAPE_STAMP_PATH = RAW_DATA_DIR / "scrape_stamp.json"
+FRAGMENTATION_STAMP_PATH = FRAGMENTED_DATA_DIR / "fragmentation_stamp.json"
 
 """CONFIG PATHS"""
 WORKFLOWS_ROOT = PROJECT_ROOT / "workflow_actions"
@@ -21,6 +23,9 @@ DATASET_PREPROCESSOR_CONFIG_PATH = (
     WORKFLOWS_ROOT / "dataset_preprocessor" / "dataset_preprocessor_config.json"
 )
 TRAIN_CONFIG_PATH = WORKFLOWS_ROOT / "train" / "train_config.json"
+DOWNLOAD_SONGS_CONFIG_PATH = (
+    WORKFLOWS_ROOT / "download_songs" / "download_songs_config.json"
+)
 
 TRAINED_MODELS_DIR = PROJECT_ROOT / "models"
 
