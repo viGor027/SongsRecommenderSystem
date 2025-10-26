@@ -54,6 +54,14 @@ class RunSingleTrainingConfig:
 
 @dataclass(frozen=True)
 class RunOptunaForAssembliesConfig:
+    """
+    If the batch_size key is present in the dataloaders dictionary,
+    its value is treated as fixed and is not included in the hyperparameter search.
+
+    If the learning_rate key is present in the hparams dictionary,
+    its value is treated as fixed and is not included in the hyperparameter search.
+    """
+
     dataloaders: dict = field(
         default_factory=lambda: {
             "num_workers": 4,
@@ -192,6 +200,7 @@ class Train:
             do_pre_epoch_hook=do_pre_epoch_hook,
         )
 
+        enable_ckpt = "model_checkpoint" in callbacks
         trainer = L.Trainer(
             max_epochs=hparams["epochs"],
             logger=wandb_logger,
@@ -200,6 +209,7 @@ class Train:
             accelerator=accelerator,
             precision=precision,
             log_every_n_steps=50,
+            enable_checkpointing=enable_ckpt,
         )
 
         try:
@@ -248,8 +258,18 @@ class Train:
             )
             model = self.model_initializer.get_model_assembly(assembly_cfg)
 
-            learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
-            batch_size = trial.suggest_int("batch_size", low=32, high=128, step=32)
+            learning_rate = (
+                self.optuna_config.hparams["learning_rate"]
+                if self.optuna_config.hparams.get("learning_rate", False)
+                else trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
+            )
+            batch_size = (
+                self.optuna_config.dataloaders["batch_size"]
+                if self.optuna_config.dataloaders.get("batch_size", False)
+                else trial.suggest_categorical(
+                    "batch_size", [i for i in range(32, 256 + 1, 32)]
+                )
+            )
             hparams = {**self.optuna_config.hparams, "learning_rate": learning_rate}
             dataloaders_cfg = {
                 **self.optuna_config.dataloaders,
