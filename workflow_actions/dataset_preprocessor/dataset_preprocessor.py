@@ -83,12 +83,22 @@ class DatasetPreprocessor:
         raw_augment: dict,
         spectrogram_extractor: dict,
         spectrogram_augment: dict,
+        prepare_all_songs_mode: Literal["fragments", "spectrograms"] = "spectrograms",
     ):
         self.chunker_cfg = chunker
         self.chunker = Chunker(**self.chunker_cfg)
         self.raw_augment = RawAugment(**raw_augment)
         self.spectrogram_extractor = SpectrogramExtractor(**spectrogram_extractor)
         self.spectrogram_augment = SpectrogramAugment(**spectrogram_augment)
+
+        mode_to_path = {
+            "fragments": FRAGMENTED_DATA_DIR,
+            "spectrograms": MODEL_READY_DATA_DIR,
+        }
+        self._prepare_all_songs_mode = prepare_all_songs_mode
+        self._prepare_all_songs_mode_based_path = mode_to_path[
+            self._prepare_all_songs_mode
+        ]
 
         self._broken_songs = []
 
@@ -100,16 +110,16 @@ class DatasetPreprocessor:
                 )
             )
 
-    def prepare_all_songs(self, mode: Literal["fragments", "spectrograms"]):
+    def prepare_all_songs(self):
         """
-        if mode is set to 'fragments':
+        if `self._prepare_all_songs_mode` is set to 'fragments':
             For each song from 01_raw its labels and fragments are prepared
             and put into respective 02_fragmented directories.
 
             Fragments are saved as X_<number>.npy files,
             labels are encoded and saved as y_<number>.pt files.
 
-        if mode is set to 'spectrograms':
+        if `self._prepare_all_songs_mode` is set to 'spectrograms':
             For each song from 01_raw spectrograms are extracted from fragments
             and put into respective 03_model_ready directories together with labels.
 
@@ -121,13 +131,9 @@ class DatasetPreprocessor:
         Note: Function first creates label mapping and
             empties train, valid directories of `02_fragmented`.
         """
-        mode_to_path = {
-            "fragments": FRAGMENTED_DATA_DIR,
-            "spectrograms": MODEL_READY_DATA_DIR,
-        }
         create_label_mapping()
-        self._empty_folder(mode_to_path[mode] / "train")
-        self._empty_folder(mode_to_path[mode] / "valid")
+        self._empty_folder(self._prepare_all_songs_mode_based_path / "train")
+        self._empty_folder(self._prepare_all_songs_mode_based_path / "valid")
         start_indexes = StartIndexes(0, 0)
         fragments_index = FragmentsIndex(train_index={}, valid_index={})
         for song in DOWNLOAD_DIR.iterdir():
@@ -136,7 +142,7 @@ class DatasetPreprocessor:
                     song_title=song.name,
                     start_indexes=start_indexes,
                     fragments_index=fragments_index,
-                    mode=mode,
+                    mode=self._prepare_all_songs_mode,
                 )
         fragments_index.dump_indexes()
         self._create_fragmentation_stamp()
