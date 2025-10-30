@@ -6,7 +6,7 @@ from typing import Literal
 
 class BaseClassifier(nn.Module):
     """
-    A base classifier designed primarily for testing and training other modules.
+    A base classifier that can be used either as a standalone model or as part of an assembly.
     """
 
     def __init__(
@@ -15,18 +15,17 @@ class BaseClassifier(nn.Module):
         n_input_features: int,
         units_per_layer: list[int],
         n_classes: int,
-        activation: Literal["relu", "hardswish"] = "relu",
+        activation: Literal["relu", "hardswish"] | None = "relu",
         sigmoid_output: bool = True,
         dtype: torch.dtype = torch.float32,
     ):
-        """
-        - n_layers (int): The number of layers in the model.
-          This does not include the final layer, which outputs the probabilities for the classes.
-        - n_input_features (int): The number of input features for the first layer.
-        - units_per_layer (list[int]): A list specifying the number of units(out_features) in each layer.
-        - n_classes (int): The number of output classes for the classifier.
-        - sigmoid_output (bool): Whether to pass final layer output through sigmoid
-        """
+        if len(units_per_layer) != n_layers - 1:
+            raise ValueError(
+                (
+                    f"units_per_layer needs to contain exactly {n_layers - 1}"
+                    f" (n_layers-1) values but contains {len(units_per_layer)} values."
+                )
+            )
 
         super().__init__()
 
@@ -38,44 +37,48 @@ class BaseClassifier(nn.Module):
         self.dtype = dtype
 
         activation_map = {"relu": nn.ReLU, "hardswish": nn.Hardswish}
-        self.activation = activation_map[activation]
+        self.activation = activation_map[activation] if activation is not None else None
 
         self.block = self.build()
 
     def build(self):
-        layers = [("starting_batch_norm", nn.BatchNorm1d(self.n_input_features))]
+        layers = []
 
         for i in range(self.n_layers):
+            is_not_last = i != self.n_layers - 1
             in_features = (
                 self.n_input_features if i == 0 else self.units_per_layer[i - 1]
             )
+            out_features = self.units_per_layer[i] if is_not_last else self.n_classes
+
             layers.append(
                 (
                     f"dense_layer_{i}",
                     nn.Linear(
                         in_features=in_features,
-                        out_features=(
-                            self.units_per_layer[i]
-                            if i != self.n_layers - 1
-                            else self.n_classes
-                        ),
+                        out_features=out_features,
+                        bias=False,
                         dtype=self.dtype,
                     ),
                 )
             )
-            layers.append((f"classifier_activation_{i}", self.activation()))
-            layers.append(
-                (
-                    f"batch_norm_classifier_{i}",
-                    nn.BatchNorm1d(
-                        (
-                            self.units_per_layer[i]
-                            if i != self.n_layers - 1
-                            else self.n_classes
-                        )
-                    ),
-                )
+            batch_norm = (
+                [
+                    (
+                        f"batch_norm_classifier_{i}",
+                        nn.BatchNorm1d(num_features=out_features),
+                    )
+                ]
+                if is_not_last
+                else []
             )
+            layers.extend(batch_norm)
+            activation = (
+                [(f"classifier_activation_{i}", self.activation())]
+                if self.activation is not None and is_not_last
+                else []
+            )
+            layers.extend(activation)
 
         if self.sigmoid_output:
             layers.append(("classifier_end_activation", nn.Sigmoid()))
@@ -90,33 +93,8 @@ class BaseClassifier(nn.Module):
         for name, layer in self.block.named_children():
             print("Name: ", name, " Layer: ", layer)
             print(f"Contains NaNs before layer: {torch.isnan(x).any()}")
-            # if 'batch' not in name and 'activation' not in name:
-            #     print("Layer params:")
-            #     print(layer.weight)
-            #     print(layer.bias)
             x = layer(x)
             print(f"Output shape {x.shape}")
             print(f"Contains NaNs after layer: {torch.isnan(x).any()}")
             print()
         return x
-
-
-if __name__ == "__main__":
-    # Usage example
-    n_layers = 3
-    n_input_features = 10
-    units_per_layer = [32, 64, 128]
-    n_classes = 5
-
-    model = BaseClassifier(
-        n_layers=0,
-        n_input_features=n_input_features,
-        units_per_layer=[],
-        n_classes=n_classes,
-    )
-
-    # batch of 4 samples with `n_input_features` per sample
-    dummy_input = torch.randn(4, n_input_features, dtype=torch.float32)
-
-    # output = model(dummy_input)
-    output = model.debug_forward(dummy_input)

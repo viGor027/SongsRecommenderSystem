@@ -2,14 +2,15 @@ from torch import nn
 import torch
 from collections import OrderedDict
 from typing import Literal
+from architectures.model_components.temporal_compressor.convolutional.conv_blocks_reduction_parent import (
+    ConvBlocksReductionParent,
+)
 
 
-class Conv2DBaseBlock(nn.Module):
+class Conv2DBaseBlock(nn.Module, ConvBlocksReductionParent):
     """
-    A convolutional block that processes 2D inputs.
+    A convolutional block that applies 2D convolution on inputs.
     Block created with this class has 'same' padding on every layer.
-
-    Dimensionality reduction depends on parameters passed to initializer.
     """
 
     def __init__(
@@ -19,20 +20,14 @@ class Conv2DBaseBlock(nn.Module):
         n_layers: int,
         n_filters_per_layer: int,
         kernel_size: int,
-        stride: int = 1,  # stride 1 due to `same padding` applied
+        stride: int = 1,  # stride 1 due to `same` padding applied
         activation: Literal["relu", "hardswish"] = "relu",
         reduction_strat: Literal["conv", "max_pool", "avg_pool"] = "conv",
         reduction_kernel_size: int = 2,
         reduction_stride: int = 2,
         dtype: torch.dtype = torch.float32,
     ):
-        """
-        Notes:
-            - block_num indicates the sequential position of this block in the model.
-            - dimensionality reduction depends on `reduction_kernel_size` and `reduction_stride`.
-        """
-
-        super().__init__()
+        nn.Module.__init__(self)
 
         self.block_num = block_num
 
@@ -43,24 +38,22 @@ class Conv2DBaseBlock(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
 
-        self.reduction_strat = reduction_strat
-        self.reduction_kernel_size = reduction_kernel_size
-        self.reduction_stride = reduction_stride
-
-        self.dtype = dtype
-
         activation_map = {"relu": nn.ReLU, "hardswish": nn.Hardswish}
         self.activation = activation_map[activation]
+
+        ConvBlocksReductionParent.__init__(
+            self,
+            block_type="2d",
+            reduction_strat=reduction_strat,
+            reduction_kernel_size=reduction_kernel_size,
+            reduction_stride=reduction_stride,
+            dtype=dtype,
+        )
 
         self.block = self.build_conv_block()
 
     def build_conv_block(self):
-        layers = [
-            (
-                f"block_{self.block_num}_starting_batch_norm",
-                nn.BatchNorm2d(self.n_input_channels),
-            )
-        ]
+        layers = []
         for i in range(self.n_layers):
             in_channels = self.n_filters_per_layer if i != 0 else self.n_input_channels
             layers.append(
@@ -72,60 +65,21 @@ class Conv2DBaseBlock(nn.Module):
                         kernel_size=self.kernel_size,
                         stride=self.stride,
                         padding="same",
+                        bias=False,
                         dtype=self.dtype,
                     ),
                 )
             )
-            layers.append((f"block_{self.block_num}_activation_{i}", self.activation()))
             layers.append(
                 (
                     f"block_{self.block_num}_batch_norm_{i}",
                     nn.BatchNorm2d(self.n_filters_per_layer),
                 )
             )
+            layers.append((f"block_{self.block_num}_activation_{i}", self.activation()))
 
         # reduces dimensionality
-        if self.reduction_strat == "conv":
-            in_channels = (
-                self.n_filters_per_layer
-                if self.n_layers != 0
-                else self.n_input_channels
-            )
-            layers.append(
-                (
-                    f"block_{self.block_num}_conv_reduce",
-                    nn.Conv2d(
-                        in_channels=in_channels,
-                        out_channels=self.n_filters_per_layer,
-                        kernel_size=self.reduction_kernel_size,
-                        stride=self.reduction_stride,
-                        dtype=self.dtype,
-                    ),
-                )
-            )
-        elif self.reduction_strat == "max_pool":
-            layers.append(
-                (
-                    f"block_{self.block_num}_max_pool_reduce",
-                    nn.MaxPool2d(
-                        kernel_size=self.reduction_kernel_size,
-                        stride=self.reduction_stride,
-                    ),
-                )
-            )
-        elif self.reduction_strat == "avg_pool":
-            layers.append(
-                (
-                    f"block_{self.block_num}_avg_pool_reduce",
-                    nn.AvgPool2d(
-                        kernel_size=self.reduction_kernel_size,
-                        stride=self.reduction_stride,
-                    ),
-                )
-            )
-        layers.append(
-            (f"block_{self.block_num}_end_block_activation", self.activation())
-        )
+        layers.append(self.reduction_layer)
         return nn.Sequential(OrderedDict(layers))
 
     def forward(self, x):
@@ -139,26 +93,3 @@ class Conv2DBaseBlock(nn.Module):
             print(f"Output shape {x.shape}")
             print()
         return x
-
-
-if __name__ == "__main__":
-    # Usage example
-    import torch
-
-    sample_len = 216
-    sample_channels = 80
-
-    sample = torch.randn((4, 1, sample_channels, sample_len))
-
-    model = Conv2DBaseBlock(
-        block_num=1,
-        n_input_channels=1,
-        n_layers=2,
-        n_filters_per_layer=16,
-        kernel_size=2,
-    )
-
-    sample = model.debug_forward(sample)
-    print("Shape after: ", sample.shape)
-    print("Resulting tensor: ")
-    print()

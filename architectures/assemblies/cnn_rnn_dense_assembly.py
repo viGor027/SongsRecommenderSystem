@@ -15,7 +15,7 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         model.init_classifier(...)
     '''
 
-    **Important note: Do not use with Conv2D convolutional blocks**
+    **IMPORTANT NOTE: Do not use with Conv2D convolutional blocks**
     """
 
     def __init__(self):
@@ -39,13 +39,6 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         dropout: float,
         layer_type: Literal["gru", "lstm"],
     ):
-        """
-        Args:
-            n_seq_encoder_layers (int): Number of layers in the sequence encoder (GRU or LSTM).
-            hidden_size (int): Hidden state size of the sequence encoder.
-            dropout (float): Dropout probability for the sequence encoder.
-            layer_type (Literal['gru', 'lstm']): Type of sequence encoder ('gru' or 'lstm').
-        """
         self.n_seq_encoder_layers = n_seq_encoder_layers
         self.hidden_size = hidden_size
         self.seq_encoder_dropout = dropout
@@ -57,12 +50,6 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         )
 
     def _build_seq_encoder(self):
-        """
-        Builds sequence encoder based on configuration passed to init_seq_encoder.
-
-        Returns:
-            nn.Sequential: Sequential container of recurrent layers.
-        """
         n_filters_in_last_skip = (
             self.n_filters_per_skip[-1] if self.n_filters_per_skip is not None else 0
         )
@@ -111,12 +98,6 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         return x
 
     def get_instance_config(self) -> dict:
-        """
-        Retrieves the configuration of the model instance.
-
-        Returns:
-            dict: A dictionary containing the model's configuration.
-        """
         return {
             "class_name": self.__class__.__name__,
             "temporal_compressor": self.get_temporal_compressor_config(),

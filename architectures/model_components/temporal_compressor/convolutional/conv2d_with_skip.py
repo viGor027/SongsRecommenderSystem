@@ -11,7 +11,7 @@ class Conv2DBlockWithSkip(nn.Module):
     A convolutional block that processes 2D without skip connections.
 
     Notes:
-        - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
+        - Every instance of this block will compress the spatial dimensions by a factor of 2.
     """
 
     def __init__(

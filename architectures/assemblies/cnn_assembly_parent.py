@@ -52,12 +52,6 @@ class CnnAssemblyParent(Assembly):
         self.conv = self._build_conv()
 
     def _build_conv(self):
-        """
-        Builds temporal compressor based on configuration passed to init_conv.
-
-        Returns:
-            nn.Sequential: Sequential container of convolutional blocks.
-        """
         blocks = []
         for i in range(self.n_blocks):
             blocks.append(self._build_single_block(i=i))

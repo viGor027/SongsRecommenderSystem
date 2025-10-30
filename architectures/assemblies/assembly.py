@@ -5,6 +5,7 @@ from architectures.model_components.classifier.base_classifier import BaseClassi
 
 class Assembly(ABC):
     def __init__(self):
+        """All the below attributes are set during initialization of child assemblies."""
         self.n_classifier_layers = None
         self.n_units_per_classifier_layer = None
         self.classifier_activation = None

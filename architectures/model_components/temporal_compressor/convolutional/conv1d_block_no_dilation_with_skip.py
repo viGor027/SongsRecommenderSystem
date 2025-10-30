@@ -11,7 +11,7 @@ class Conv1DBlockNoDilationWithSkip(nn.Module):
     A convolutional block that processes 1D inputs without dilation, incorporating skip connection.
 
     This block combines the output of a convolutional block (`Conv1DBlockNoDilationNoSkip`) with a halved version
-    of its input. The halving is achieved using a convolutional layer with `stride=2` and `kernel_size=2`.
+    of its input.
 
     This class is implemented with causal padding(look at Conv1DBaseBlock implementation for further explanation).
 
@@ -88,29 +88,3 @@ class Conv1DBlockNoDilationWithSkip(nn.Module):
         print(f"Output shape of halving layer {x_halved.shape}")
         out = torch.cat((x, x_halved), dim=1)
         return out
-
-
-if __name__ == "__main__":
-    # Usage example
-    import torch
-
-    sample_len = 200
-    sample_channels = 80
-
-    sample = torch.randn((4, sample_channels, sample_len))
-
-    model = Conv1DBlockNoDilationWithSkip(
-        block_num=1,
-        input_len=sample_len,
-        n_input_channels=sample_channels,
-        kernel_size=2,
-        stride=1,
-        n_filters_per_layer=64,
-        n_filters_skip=16,
-        n_layers=2,
-        reduction_strat="conv",
-    )
-    sample = model.debug_forward(sample)
-    print("Shape after: ", sample.shape)
-    print("Resulting tensor: ")
-    print()

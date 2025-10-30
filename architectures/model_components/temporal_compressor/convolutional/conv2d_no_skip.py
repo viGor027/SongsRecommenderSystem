@@ -11,7 +11,7 @@ class Conv2DBlockNoSkip(nn.Module):
     A convolutional block that processes 2D without skip connections.
 
     Notes:
-        - Every instance of this block will compress the temporal dimension (length of the time axis) by a factor of 2.
+        - Every instance of this block will compress the spatial dimensions by a factor of 2.
     """
 
     def __init__(
@@ -28,7 +28,6 @@ class Conv2DBlockNoSkip(nn.Module):
         reduction_stride: int = 2,
         dtype: torch.dtype = torch.float32,
     ):
-        """Note: input_len is not used and is present for API consistency"""
         super().__init__()
 
         self.block = Conv2DBaseBlock(

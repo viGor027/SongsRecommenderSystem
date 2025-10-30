@@ -5,7 +5,19 @@ from typing import Literal
 
 
 class DenseAssembly(nn.Module, Assembly):
+    """
+    A wrapper for convenient model assembling.
+
+    You must initialize each part of the model before usage:
+    '''
+        model = DenseAssembly()
+        model.init_feature_extractor(...)
+        model.init_classifier(...)
+    '''
+    """
+
     def __init__(self):
+        """All the below attributes are set during initialization mentioned in class docstring."""
         nn.Module.__init__(self)
         Assembly.__init__(self)
 
@@ -52,12 +64,6 @@ class DenseAssembly(nn.Module, Assembly):
         return out
 
     def get_instance_config(self) -> dict:
-        """
-        Retrieves the configuration of the model instance.
-
-        Returns:
-            dict: A dictionary containing the model's configuration.
-        """
         return {
             "class_name": self.__class__.__name__,
             "feature_extractor": {

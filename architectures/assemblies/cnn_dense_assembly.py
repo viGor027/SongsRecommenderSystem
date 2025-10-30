@@ -40,26 +40,12 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         n_units_per_seq_encoder_layer: list[int],
         n_embedding_dims: int,
     ):
-        """
-        Initializes the sequence encoder with the specified parameters.
-
-        Args:
-            n_seq_encoder_layers (int): Number of layers in the sequence encoder.
-            n_units_per_seq_encoder_layer (list[int]): Number of units per sequence encoder layer.
-            n_embedding_dims (int): Dimension of the embeddings produced by the sequence encoder.
-        """
         self.n_seq_encoder_layers = n_seq_encoder_layers
         self.n_units_per_seq_encoder_layer = n_units_per_seq_encoder_layer
         self.n_embedding_dims = n_embedding_dims
         self.seq_encoder = self._build_seq_encoder()
 
     def _build_seq_encoder(self):
-        """
-        Builds dense sequence encoder based on configuration passed to init_seq_encoder.
-
-        Returns:
-            BaseClassifier: Sequence encoder.
-        """
         self._infer_conv_output_shape()
         seq_encoder = BaseClassifier(
             n_layers=self.n_seq_encoder_layers,
@@ -106,12 +92,6 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         return x
 
     def get_instance_config(self) -> dict:
-        """
-        Retrieves the configuration of the model instance.
-
-        Returns:
-            dict: A dictionary containing the model's configuration.
-        """
         return {
             "class_name": self.__class__.__name__,
             "temporal_compressor": self.get_temporal_compressor_config(),
