@@ -109,7 +109,7 @@ class OptunaAssemblyConfigBuilder:
                     f"{assembly_name}/layer_type", ["gru", "lstm"]
                 ),
             },
-            "classifier": self._get_classifier_config(assembly_name=assembly_name),
+            "classifier": self._get_classifier_config(),
         }
 
     def _build_cnn_dense_cfg(self, assembly_name: str) -> dict:
@@ -178,7 +178,7 @@ class OptunaAssemblyConfigBuilder:
                 ],
                 "n_embedding_dims": self.n_embedding_dims,
             },
-            "classifier": self._get_classifier_config(assembly_name=assembly_name),
+            "classifier": self._get_classifier_config(),
         }
 
     def _build_cnn_rnn_dense_cfg(self, assembly_name: str) -> dict:
@@ -241,7 +241,7 @@ class OptunaAssemblyConfigBuilder:
                     f"{assembly_name}/layer_type", ["gru", "lstm"]
                 ),
             },
-            "classifier": self._get_classifier_config(assembly_name=assembly_name),
+            "classifier": self._get_classifier_config(),
         }
 
     def _build_dense_cfg(self, assembly_name: str):
@@ -266,15 +266,13 @@ class OptunaAssemblyConfigBuilder:
                     f"{assembly_name}/feature_extractor_activation", self.ACTIVATIONS
                 ),
             },
-            "classifier": self._get_classifier_config(assembly_name=assembly_name),
+            "classifier": self._get_classifier_config(),
         }
 
-    def _get_classifier_config(self, assembly_name: str) -> dict:
+    def _get_classifier_config(self) -> dict:
         return {
             "n_classifier_layers": 1,
             "n_units_per_classifier_layer": [],
-            "classifier_activation": self.trial.suggest_categorical(
-                f"{assembly_name}/classifier_activation", self.ACTIVATIONS
-            ),
+            "activation": None,
             "n_classes": self.n_classes,
         }
