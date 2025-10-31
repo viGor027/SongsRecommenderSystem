@@ -174,7 +174,7 @@ class OptunaAssemblyConfigBuilder:
                         f"{assembly_name}/n_units_per_seq_encoder_layer_{i}",
                         *self.cnn_dense_bounds.n_units_per_seq_encoder_layer,
                     )
-                    for i in range(n_seq_encoder_layers)
+                    for i in range(n_seq_encoder_layers - 1)
                 ],
                 "n_embedding_dims": self.n_embedding_dims,
             },
@@ -273,6 +273,6 @@ class OptunaAssemblyConfigBuilder:
         return {
             "n_classifier_layers": 1,
             "n_units_per_classifier_layer": [],
-            "activation": None,
+            "classifier_activation": None,
             "n_classes": self.n_classes,
         }
