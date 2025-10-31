@@ -40,5 +40,5 @@ def encode_song_labels_to_multi_hot_vector(song_title: str) -> torch.Tensor:
     n_classes = len(label_to_int)
     song_int_tags = [label_to_int[label] for label in labels[song_title]]
     one_hot_tags = one_hot(torch.tensor(song_int_tags), num_classes=n_classes)
-    multi_hot_tags = one_hot_tags.sum(dim=0).float()
+    multi_hot_tags = one_hot_tags.sum(dim=0).clamp(max=1).float()
     return multi_hot_tags
