@@ -67,6 +67,7 @@ class DenseAssembly(nn.Module, Assembly):
         return {
             "class_name": self.__class__.__name__,
             "feature_extractor": {
+                "n_input_channels": self.n_input_channels,
                 "n_feature_extractor_layers": self.n_feature_extractor_layers,
                 "n_units_per_feature_extractor_layer": self.n_units_per_feature_extractor_layer,
                 "feature_extractor_activation": self.feature_extractor_activation,
