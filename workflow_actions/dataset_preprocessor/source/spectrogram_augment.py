@@ -1,7 +1,5 @@
 import torch
-import numpy as np
 import torchaudio.transforms as T
-from pathlib import Path
 
 
 class SpectrogramAugment:
@@ -19,10 +17,8 @@ class SpectrogramAugment:
         "FrequencyMasking": T.FrequencyMasking,
     }
 
-    def __init__(self, log_path: Path | str | None, augmentations: list[dict]):
-        self.log_path = log_path
-        self.transforms = []  # list of (Module, probability)
-        self._records = []
+    def __init__(self, augmentations: list[dict]):
+        self.transforms = []
 
         for aug_cfg in augmentations:
             name = aug_cfg["name"]
@@ -32,19 +28,16 @@ class SpectrogramAugment:
             self.transforms.append(transform)
 
     def __call__(
-        self, fragment_id: str, spectrogram: np.ndarray
-    ) -> tuple[torch.Tensor, list[str]]:
+        self,
+        spectrograms: list[torch.Tensor],
+    ) -> list[torch.Tensor]:
         """
-        fragment_id:  identyfikator
-        spectrogram:  2D float32 numpy array, shape (n_mels, time_steps)
+        spectrograms (list[torch.Tensor]): spectrograms of shape [1, n_mels, len]
         """
-        record = {"fragment_id": fragment_id, "applied": []}
+        if not spectrograms:
+            return []
 
-        spec = torch.from_numpy(spectrogram.astype(np.float32)).unsqueeze(0)
-
-        for transform in self.transforms:
-            spec = transform(spec)
-            record["applied"].append(transform.__class__.__name__)
-
-        self._records.append(record)
-        return spec, record["applied"]
+        batch = torch.stack(spectrograms, dim=0)  # [batch, 1, n_mels, len]
+        for t in self.transforms:
+            batch = t(batch)
+        return [b for b in batch]

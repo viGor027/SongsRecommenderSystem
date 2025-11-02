@@ -1,10 +1,12 @@
 from workflow_actions.paths import (
-    DATA_DIR,
     DOWNLOAD_DIR,
-    FRAGMENTED_DATA_DIR,
-    MODEL_READY_DATA_DIR,
     FRAGMENTATION_STAMP_PATH,
+    FRAGMENTATION_INDEX_PATH,
     SCRAPE_STAMP_PATH,
+    GLOBAL_TRAIN_INDEX_PATH,
+    GLOBAL_VALID_INDEX_PATH,
+    MODEL_READY_TRAIN_DIR,
+    MODEL_READY_VALID_DIR,
 )
 from workflow_actions.dataset_preprocessor.source import (
     Chunker,
@@ -12,13 +14,11 @@ from workflow_actions.dataset_preprocessor.source import (
     SpectrogramExtractor,
     SpectrogramAugment,
     load_single_song_to_numpy,
-    save_numpy_fragment,
-    load_numpy_fragment,
     encode_song_labels_to_multi_hot_vector,
     create_label_mapping,
 )
 from workflow_actions.json_handlers import write_dict_to_json, read_json_to_dict
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 import torch
 import numpy as np
 from dataclasses import dataclass
@@ -27,80 +27,104 @@ import shutil
 from datetime import datetime
 
 if TYPE_CHECKING:
-    from workflow_actions.dataset_preprocessor.source.chunker import FragmentedSongNumpy
+    from workflow_actions.dataset_preprocessor.source.chunker import (
+        FragmentedSongSlices,
+        FragmentedSongIndex,
+    )
     from numpy.typing import NDArray
 
 
 @dataclass
-class StartIndexes:
-    start_index_train: int
-    start_index_valid: int
+class GlobalFragmentsIndex:
+    """
+    Maps song title to global (inside a given set) fragment (sample) numbers.
 
+    For a given song it keeps first global fragment number and the last one (both inclusive).
 
-@dataclass
-class FragmentsIndex:
-    """Maps global fragment number to song title that contains this fragment."""
+    Songs are sorted before being added to index.
+    """
 
-    train_index: dict[int, str]
-    valid_index: dict[int, str]
+    train_index: dict[str, list[int, int]]
+    valid_index: dict[str, list[int, int]]
 
-    def add_song_to_train(self, song_title: str, start_with_idx: int, n_fragments: int):
-        for relative_idx in range(n_fragments):
-            self.train_index[start_with_idx + relative_idx] = song_title
+    # These keep track of number of samples already present in the given set
+    _start_index_train: int = 0
+    _start_index_valid: int = 0
 
-    def add_song_to_valid(self, song_title: str, start_with_idx: int, n_fragments: int):
-        for relative_idx in range(n_fragments):
-            self.valid_index[start_with_idx + relative_idx] = song_title
+    def add_song_to_train(self, song_title: str, n_fragments: int):
+        self.train_index[song_title] = [
+            self._start_index_train,
+            self._start_index_train + n_fragments - 1,
+        ]
+        self._start_index_train += n_fragments
+
+    def add_song_to_valid(self, song_title: str, n_fragments: int):
+        self.train_index[song_title] = [
+            self._start_index_valid,
+            self._start_index_valid + n_fragments - 1,
+        ]
+        self._start_index_valid += n_fragments
 
     def dump_indexes(self):
-        write_dict_to_json(self.train_index, DATA_DIR / "train_index.json")
-        write_dict_to_json(self.valid_index, DATA_DIR / "valid_index.json")
+        write_dict_to_json(self.train_index, GLOBAL_TRAIN_INDEX_PATH)
+        write_dict_to_json(self.valid_index, GLOBAL_VALID_INDEX_PATH)
 
 
 class DatasetPreprocessor:
-    """
-    prepare_all_songs_fragments:
-        01_raw -> 02_fragmented | 03_model_ready (for both 'train' and 'valid'),
-        see function docstring for more detailed info,
-        index files are created.
-
-    make_fragments_model_ready_without_augmenting:
-        02_fragmented -> 03_model_ready (for specified set),
-        extracts spectrograms from fragments,
-        y_<number>.pt files are just copied.
-
-    pre_epoch_augment_hook:
-        02_fragmented -> 03_model_ready (only 'train' set),
-        applies augmentation on raw audio, extracts spectrograms, applies augmentation on spectrograms,
-        y_<number>.pt files are just copied.
-
-    For more info see respective functions docstrings.
-    """
-
     def __init__(
         self,
         chunker: dict,
         raw_augment: dict,
         spectrogram_extractor: dict,
         spectrogram_augment: dict,
-        prepare_all_songs_mode: Literal["fragments", "spectrograms"] = "spectrograms",
+        apply_augmentations_on_raw: bool,
+        extract_spectrograms: bool,
+        apply_augmentations_on_spectrograms: bool,
     ):
+        # TODO: remember to change chunker, raw_augment, spectrogram_augment params - __init__ changed
         self.chunker_cfg = chunker
         self.chunker = Chunker(**self.chunker_cfg)
         self.raw_augment = RawAugment(**raw_augment)
         self.spectrogram_extractor = SpectrogramExtractor(**spectrogram_extractor)
         self.spectrogram_augment = SpectrogramAugment(**spectrogram_augment)
 
-        mode_to_path = {
-            "fragments": FRAGMENTED_DATA_DIR,
-            "spectrograms": MODEL_READY_DATA_DIR,
-        }
-        self._prepare_all_songs_mode = prepare_all_songs_mode
-        self._prepare_all_songs_mode_based_path = mode_to_path[
-            self._prepare_all_songs_mode
-        ]
-
+        self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = None
         self._broken_songs = []
+
+        # always preserve alphabetical order
+        self._SONG_ITERATION_ORDER = sorted(
+            list(DOWNLOAD_DIR.iterdir()), key=lambda path: path.name
+        )
+
+        self._PIPELINE_NODES_IN_ORDER = [
+            ("_get_raw_fragments", self._get_raw_fragments),
+            (
+                "_get_augmented_raw_fragments",
+                (
+                    self._get_augmented_raw_fragments
+                    if apply_augmentations_on_raw
+                    else self._pass_func
+                ),
+            ),
+            (
+                "_get_fragments_spectrograms",
+                (
+                    self._get_fragments_spectrograms
+                    if extract_spectrograms
+                    else self._pass_func
+                ),
+            ),
+            ("_get_samples_as_tensors", self._get_samples_as_tensors),
+            (
+                "_get_augmented_spectrograms",
+                (
+                    self._get_augmented_spectrograms
+                    if extract_spectrograms and apply_augmentations_on_spectrograms
+                    else self._pass_func
+                ),
+            ),
+            ("_serialize_samples", self._serialize_samples),
+        ]
 
         if self.chunker.sample_rate != self.spectrogram_extractor.sample_rate:
             raise ValueError(
@@ -110,205 +134,175 @@ class DatasetPreprocessor:
                 )
             )
 
-    def prepare_all_songs(self):
-        """
-        if `self._prepare_all_songs_mode` is set to 'fragments':
-            For each song from 01_raw its labels and fragments are prepared
-            and put into respective 02_fragmented directories.
-
-            Fragments are saved as X_<number>.npy files,
-            labels are encoded and saved as y_<number>.pt files.
-
-        if `self._prepare_all_songs_mode` is set to 'spectrograms':
-            For each song from 01_raw spectrograms are extracted from fragments
-            and put into respective 03_model_ready directories together with labels.
-
-            Fragments are saved as X_<number>.pt files,
-            labels are encoded and saved as y_<number>.pt files.
-
-        train_index.json and valid_index.json are created.
-
-        Note: Function first creates label mapping and
-            empties train, valid directories of `02_fragmented`.
-        """
-        create_label_mapping()
-        self._empty_folder(self._prepare_all_songs_mode_based_path / "train")
-        self._empty_folder(self._prepare_all_songs_mode_based_path / "valid")
-        start_indexes = StartIndexes(0, 0)
-        fragments_index = FragmentsIndex(train_index={}, valid_index={})
-        for song in DOWNLOAD_DIR.iterdir():
+    def create_fragmentation_for_all_songs(self):
+        global_fragments_index = GlobalFragmentsIndex(
+            train_index={},
+            valid_index={},
+        )
+        fragmentation_index: dict[str, "FragmentedSongIndex"] = {}
+        for song in self._SONG_ITERATION_ORDER:
             if song.is_file():
-                self._prepare_single_song(
+                self._create_fragmentation_for_single_song(
                     song_title=song.name,
-                    start_indexes=start_indexes,
-                    fragments_index=fragments_index,
-                    mode=self._prepare_all_songs_mode,
+                    global_fragments_index=global_fragments_index,
+                    fragmentation_index=fragmentation_index,
                 )
-        fragments_index.dump_indexes()
-        self._create_fragmentation_stamp()
+        self._record_fragmentation_run(
+            global_fragments_index=global_fragments_index,
+            fragmentation_index=fragmentation_index,
+        )
+
+    def run_pipeline(self):
+        """Populates 03_model_ready with samples."""
+        self._load_fragmentation_index()
+        # TODO: Implement outer loop parallely (?)
+        for song in self._SONG_ITERATION_ORDER:
+            if song.stem not in self._fragmentation_index.keys():
+                continue
+            state = None
+            for node_name, node in self._PIPELINE_NODES_IN_ORDER:
+                if node_name == "_get_raw_fragments":
+                    state = node(song_title=song.stem)
+                elif node_name == "_serialize_samples":
+                    node(state, song_title=song.stem)
+                else:
+                    state = node(state)
 
     def pre_epoch_augment_hook(self):
-        """
-        Is called at the beginning of every epoch;
-        takes fragments from 02_fragmented/train,
-        applies augmentations on raw fragment,
-        extracts mel spectrogram,
-        applies augmentations on mel spectrograms,
-        saves spectrogram fragments to 03_model_ready/train.
+        raise NotImplementedError("Implement this method.")
 
-        Note:
-            Function empties 03_model_ready/train directory
-            at the beginning of each call.
-        """
-        # TODO: Make it parallel
-        self._empty_folder(MODEL_READY_DATA_DIR / "train")
-        for fragment in (FRAGMENTED_DATA_DIR / "train").iterdir():
-            if (
-                fragment.is_file()
-                and fragment.name.startswith("X_")
-                and fragment.name.endswith(".npy")
-            ):
-                self._make_single_fragment_model_ready(fragment_fname=fragment.name)
-
-    def make_fragments_model_ready_without_augmenting(
-        self,
-        set_type: Literal["train", "valid"],
-    ):
-        """
-        Use to move files from 02_fragmented to 03_model_ready without augmenting data.
-        For every song fragment from 02_fragmented spectrogram is extracted and saved to 03_model_ready.
-
-        set_type (str): Which set will be moved to 03_model_ready, either 'train' or 'valid'.
-
-        Notes:
-            - MODEL_READY_DATA_DIR / set_type is first emptied.
-            - y_<number>.pt files are just copied.
-        """
-        self._empty_folder(MODEL_READY_DATA_DIR / set_type)
-        for fragment_path in (FRAGMENTED_DATA_DIR / set_type).iterdir():
-            if fragment_path.name.endswith(".npy"):
-                loaded_numpy_fragment = load_numpy_fragment(path=fragment_path)
-                spectrogram_torch = self._get_spectrogram_from_fragment(
-                    loaded_numpy_fragment
-                )
-                tensor_name = fragment_path.name.replace(".npy", ".pt")
-                torch.save(
-                    spectrogram_torch, MODEL_READY_DATA_DIR / set_type / tensor_name
-                )
-            else:
-                shutil.copy(
-                    fragment_path,
-                    MODEL_READY_DATA_DIR / set_type / fragment_path.name,
-                )
-
-    def _prepare_single_song(
+    def _create_fragmentation_for_single_song(
         self,
         song_title: str,
-        start_indexes: StartIndexes,
-        fragments_index: FragmentsIndex,
-        mode: Literal["fragments", "spectrograms"],
+        global_fragments_index: GlobalFragmentsIndex,
+        fragmentation_index: dict[str, "FragmentedSongIndex"],
     ):
-        """
-        Creates song fragments, encodes its labels and saves them to 02_fragmented
-        for train and valid sets.
-
-        Note: **Pass `song_title` with extension.**
-        """
-        mode_to_save_func = {
-            "fragments": self._save_set_fragments_with_labels,
-            "spectrograms": self._save_set_fragments_directly_to_model_ready,
-        }
-        save_func = mode_to_save_func[mode]
         song, sample_rate = load_single_song_to_numpy(path=DOWNLOAD_DIR / song_title)
         if not sample_rate:
             self._broken_songs.append(song_title)
-            return
+            return None
 
-        fragmented_song: "FragmentedSongNumpy" = self.chunker.make_fragments_from_numpy(
+        song_fragmentation_index: "FragmentedSongIndex" = self.chunker.make_song_index(
             song=song
         )
-        song_title = song_title.replace(".mp3", "").replace(".wav", "")
-        encoded_song_tags: torch.Tensor = encode_song_labels_to_multi_hot_vector(
-            song_title=song_title
+        song_title = Path(song_title).stem
+        fragmentation_index[song_title] = song_fragmentation_index
+
+        global_fragments_index.add_song_to_train(
+            song_title=song_title, n_fragments=len(song_fragmentation_index["train"])
+        )
+        global_fragments_index.add_song_to_valid(
+            song_title=song_title, n_fragments=len(song_fragmentation_index["valid"])
         )
 
-        set_to_index_add_method = {
-            "train": fragments_index.add_song_to_train,
-            "valid": fragments_index.add_song_to_valid,
-        }
-        for set_type in ["train", "valid"]:
-            samples = fragmented_song[set_type]
-            n_samples = len(samples)
-            start_with_idx = (
-                start_indexes.start_index_train
-                if set_type == "train"
-                else start_indexes.start_index_valid
-            )
-            save_func(
-                set_type=set_type,
-                samples=samples,
-                encoded_song_tags=encoded_song_tags,
-                start_with_index=start_with_idx,
-            )
-            set_to_index_add_method[set_type](
-                song_title=song_title,
-                start_with_idx=start_with_idx,
-                n_fragments=n_samples,
-            )
-            if set_type == "train":
-                start_indexes.start_index_train += n_samples
-            else:
-                start_indexes.start_index_valid += n_samples
-
-    def _make_single_fragment_model_ready(self, fragment_fname: str):
-        """
-        Reads file `fragment_fname` from 02_fragmented/train,
-        augments it and saves it into  03_model_ready/train.
-
-        fragment_fname (str): fragment name like X_<number>.npy
-
-        Note: y_<number>.pt files are just copied.
-        """
-        if not all([substr in fragment_fname for substr in ["X", "_", ".npy"]]):
+    def _get_raw_fragments(
+        self,
+        song_title: str,
+    ) -> "FragmentedSongSlices":
+        song, sample_rate = load_single_song_to_numpy(path=DOWNLOAD_DIR / song_title)
+        if sample_rate != self.chunker.sample_rate:
             raise ValueError(
-                "Wrong fragment_fname passed to "
-                f"PrepareDataset.make_single_fragment_model_ready: {fragment_fname}"
+                "DatasetPreprocessor._get_raw_fragments:\n"
+                f"Loaded song sample rate {sample_rate} doesn't match chunker sample rate {self.chunker.sample_rate}."
+                "Check consistency."
             )
+        raw_fragments = self.chunker.make_song_slices(
+            song=song,
+            fragmented_song_index=self._fragmentation_index[song_title],
+        )
+        return raw_fragments
 
-        fragment = load_numpy_fragment(
-            path=FRAGMENTED_DATA_DIR / "train" / fragment_fname
-        )
-        fragment_id: str = fragment_fname.split("_")[1].split(".")[0]
-        augmented_raw_fragment, _ = self.raw_augment(
-            fragment_id=fragment_id,
-            raw_fragment=fragment,
-            sample_rate=self.chunker.sample_rate,
-        )
-        fragment_mel_spec = self.spectrogram_extractor([augmented_raw_fragment])[0]
-        augmented_mel_spec, _ = self.spectrogram_augment(
-            fragment_id=fragment_id, spectrogram=fragment_mel_spec
-        )
-        augmented_mel_spec_fname = f"X_{fragment_id}.pt"
-        torch.save(
-            augmented_mel_spec,
-            MODEL_READY_DATA_DIR / "train" / augmented_mel_spec_fname,
-        )
-        y_fname = f"y_{fragment_id}.pt"
-        shutil.copy(
-            FRAGMENTED_DATA_DIR / "train" / y_fname,
-            MODEL_READY_DATA_DIR / "train" / y_fname,
-        )
+    def _get_augmented_raw_fragments(
+        self,
+        raw_fragments: "FragmentedSongSlices",
+    ) -> dict[str, list["NDArray[np.float32]"]]:
+        augmented_raw_fragments = {
+            "train": self.raw_augment(
+                raw_fragments=raw_fragments["train"],
+                sample_rate=self.chunker.sample_rate,
+            ),
+            "valid": self.raw_augment(
+                raw_fragments=raw_fragments["valid"],
+                sample_rate=self.chunker.sample_rate,
+            ),
+        }
+        return augmented_raw_fragments
 
-    def _get_spectrogram_from_fragment(
-        self, fragment: "NDArray[np.float32]"
-    ) -> torch.Tensor:
-        spectrogram = self.spectrogram_extractor([fragment])[0]
-        spectrogram_torch = torch.from_numpy(spectrogram.astype(np.float32)).unsqueeze(
-            0
-        )
-        return spectrogram_torch
+    def _get_fragments_spectrograms(
+        self,
+        raw_fragments: dict[str, list["NDArray[np.float32]"]] | "FragmentedSongSlices",
+    ) -> dict[str, list["NDArray[np.float32]"]]:
+        fragments_spectrograms = {
+            "train": self.spectrogram_extractor(raw_fragments["train"]),
+            "valid": self.spectrogram_extractor(raw_fragments["valid"]),
+        }
+        return fragments_spectrograms
 
-    def _create_fragmentation_stamp(self):
+    @staticmethod
+    def _get_samples_as_tensors(
+        samples: dict[str, list["NDArray[np.float32]"]],
+    ) -> dict[str, list[torch.Tensor]]:
+        spectrograms_as_tensors = {
+            "train": [
+                torch.from_numpy(spectrogram.astype(np.float32)).unsqueeze(0)
+                for spectrogram in samples["train"]
+            ],
+            "valid": [
+                torch.from_numpy(spectrogram.astype(np.float32)).unsqueeze(0)
+                for spectrogram in samples["valid"]
+            ],
+        }
+        return spectrograms_as_tensors
+
+    def _get_augmented_spectrograms(
+        self,
+        spectrograms_as_tensors: dict[str, list[torch.Tensor]],
+    ) -> dict[str, list[torch.Tensor]]:
+        augmented_spectrograms = {
+            "train": self.spectrogram_augment(spectrograms_as_tensors["train"]),
+            "valid": self.spectrogram_augment(spectrograms_as_tensors["valid"]),
+        }
+        return augmented_spectrograms
+
+    def _serialize_samples(
+        self,
+        samples: dict[str, list[torch.Tensor]] | dict[str, list["NDArray[np.float32]"]],
+        song_title,
+    ):
+        # TODO: Must implement serialization in reference to GlobalIndex
+        ...
+
+    @staticmethod
+    def _create_all_ys():
+        try:
+            global_train_index = read_json_to_dict(GLOBAL_TRAIN_INDEX_PATH)
+            global_valid_index = read_json_to_dict(GLOBAL_VALID_INDEX_PATH)
+        except FileNotFoundError as e:
+            print(
+                f"{str(e)}.\nRun DatasetPreprocessor.create_fragmentation_for_all_songs first."
+            )
+        create_label_mapping()
+        path_and_index = {
+            "train": (MODEL_READY_TRAIN_DIR, global_train_index),
+            "valid": (MODEL_READY_VALID_DIR, global_valid_index),
+        }
+        # TODO: Change iteration method accordingly to GlobalIndex
+        # TODO: Remember to call this function
+        for set_path, index in path_and_index.values():
+            for absolute_fragment_number, song_title in index.items():
+                encoded_song_tags = encode_song_labels_to_multi_hot_vector(
+                    song_title=song_title,
+                )
+                torch.save(
+                    encoded_song_tags,
+                    set_path / f"y_{absolute_fragment_number}.pt",
+                )
+
+    def _record_fragmentation_run(
+        self,
+        global_fragments_index: GlobalFragmentsIndex,
+        fragmentation_index: dict[str, "FragmentedSongIndex"],
+    ):
         now = datetime.now()
         formatted_time = now.strftime("%Y/%m/%d_%H-%M-%S")
         scrape_stamp = read_json_to_dict(SCRAPE_STAMP_PATH)
@@ -319,6 +313,27 @@ class DatasetPreprocessor:
             "time_stamp": formatted_time,
         }
         write_dict_to_json(fragmentation_stamp, FRAGMENTATION_STAMP_PATH)
+        write_dict_to_json(
+            {"time_stamp": formatted_time, "fragmentation_index": fragmentation_index},
+            FRAGMENTATION_INDEX_PATH,
+        )
+        global_fragments_index.dump_indexes()
+
+    def _load_fragmentation_index(self):
+        if self._fragmentation_index is not None:
+            return
+        try:
+            self._fragmentation_index = read_json_to_dict(FRAGMENTATION_INDEX_PATH)[
+                "fragmentation_index"
+            ]
+        except FileNotFoundError as e:
+            print(
+                f"{str(e)}.\nRun DatasetPreprocessor.create_fragmentation_for_all_songs first."
+            )
+
+    @staticmethod
+    def _pass_func(x):
+        return x
 
     @staticmethod
     def _empty_folder(path: Path):
@@ -328,43 +343,3 @@ class DatasetPreprocessor:
                 element.unlink()
             elif element.is_dir():
                 shutil.rmtree(element)
-
-    @staticmethod
-    def _save_set_fragments_with_labels(
-        set_type: Literal["train", "valid"],
-        samples: list,
-        encoded_song_tags: torch.Tensor,
-        start_with_index: int,
-    ):
-        for current_relative_idx, fragment in enumerate(samples):
-            absolute_fragment_number = current_relative_idx + start_with_index
-            save_numpy_fragment(
-                fragment=fragment,
-                path=FRAGMENTED_DATA_DIR
-                / set_type
-                / f"X_{absolute_fragment_number}.npy",
-            )
-            torch.save(
-                encoded_song_tags,
-                FRAGMENTED_DATA_DIR / set_type / f"y_{absolute_fragment_number}.pt",
-            )
-
-    def _save_set_fragments_directly_to_model_ready(
-        self,
-        set_type: Literal["train", "valid"],
-        samples: list,
-        encoded_song_tags: torch.Tensor,
-        start_with_index: int,
-    ):
-        """Function doesnt augment fragments."""
-        for current_relative_idx, fragment in enumerate(samples):
-            absolute_fragment_number = current_relative_idx + start_with_index
-            spectrogram = self._get_spectrogram_from_fragment(fragment=fragment)
-            torch.save(
-                spectrogram,
-                MODEL_READY_DATA_DIR / set_type / f"X_{absolute_fragment_number}.pt",
-            )
-            torch.save(
-                encoded_song_tags,
-                MODEL_READY_DATA_DIR / set_type / f"y_{absolute_fragment_number}.pt",
-            )

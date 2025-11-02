@@ -14,9 +14,17 @@ def load_numpy_fragment(path: Path) -> np.ndarray:
     return np.load(str(path))
 
 
+def _resolve_audio_path(path: Path) -> Path:
+    base = path.with_suffix("")
+    for ext in (".wav", ".mp3"):
+        candidate = base.with_suffix(ext)
+        if candidate.exists():
+            return candidate
+
+
 def load_single_song_to_numpy(path: Path) -> tuple[np.ndarray, int] | tuple[None, None]:
     try:
-        song, sample_rate = librosa.load(path)
+        song, sample_rate = librosa.load(_resolve_audio_path(path))
     except Exception as _:
         print(f"There was a problem loading {path.stem}; Skipping...")
         return None, None

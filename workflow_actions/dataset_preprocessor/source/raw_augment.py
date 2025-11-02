@@ -6,8 +6,6 @@ from audiomentations import (
     Shift,
     Mp3Compression,
 )
-from pathlib import Path
-from workflow_actions.json_handlers import write_dict_to_json
 
 
 class RawAugment:
@@ -28,14 +26,12 @@ class RawAugment:
         "Mp3Compression": Mp3Compression,
     }
 
-    def __init__(self, log_path: Path | str | None, augmentations: list[dict]):
+    def __init__(self, augmentations: list[dict]):
         """
         log_path (Path or str): path where logs will be saved
         augmentations (list): list of dicts, each with 'name' and a 'params' sub-dictionary
         """
-        self.log_path = log_path
         self.transforms = []
-        self._records = []
 
         for aug_cfg in augmentations:
             name = aug_cfg["name"]
@@ -44,25 +40,17 @@ class RawAugment:
             self.transforms.append(AugCls(**params))
 
     def __call__(
-        self, fragment_id: str | None, raw_fragment: np.ndarray, sample_rate: int
-    ) -> tuple[np.ndarray, list[str]]:
-        """Augment single song.
+        self,
+        raw_fragments: list[np.ndarray],
+        sample_rate: int,
+    ) -> list[np.ndarray]:
+        if not raw_fragments:
+            return []
 
-        Returns:
-            augmented song and list of transformation used during augmentation
-        """
-        record = {"fragment_id": fragment_id, "applied": []}
-
-        augmented_fragment = raw_fragment
-        for transform in self.transforms:
-            if np.random.rand() <= transform.p:
-                augmented_fragment = transform(
-                    samples=augmented_fragment, sample_rate=sample_rate
-                )
-                record["applied"].append(transform.__class__.__name__)
-
-        self._records.append(record)
-        return augmented_fragment, record["applied"]
-
-    def save_records(self):
-        write_dict_to_json(data=self._records, file_path=self.log_path)
+        out: list[np.ndarray] = []
+        for frag in raw_fragments:
+            for t in self.transforms:
+                if np.random.rand() <= getattr(t, "p", 1.0):
+                    frag = t(samples=frag, sample_rate=sample_rate)
+            out.append(frag)
+        return out

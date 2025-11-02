@@ -1,16 +1,14 @@
-from typing import TypeAlias, Literal, Callable
+from typing import Literal, Callable
 import librosa.feature
 from typing import Iterable
 import numpy as np
 
-ExtractionMethod: TypeAlias = Literal["mel"]
-
 
 class SpectrogramExtractor:
     def __init__(
-        self, extraction_method: ExtractionMethod, sample_rate: int, n_mels: int
+        self, extraction_method: Literal["mel"], sample_rate: int, n_mels: int
     ):
-        extraction_methods: dict[ExtractionMethod, Callable] = {
+        extraction_methods: dict[str, Callable] = {
             "mel": self._extract_mel_spec_from_fragments
         }
 
