@@ -44,6 +44,8 @@ class Chunker:
         self.validation_probability = validation_probability
         self.n_seconds = n_seconds
         self.step = step
+        if step is not None and step >= n_seconds:
+            raise ValueError("Chunker it must be that step < n_seconds.")
 
     def make_song_index(
         self,
@@ -92,7 +94,9 @@ class Chunker:
                     [False, True],
                     p=[1 - self.validation_probability, self.validation_probability],
                 )
-                if sample_to_valid and recent_sample_to_valid:
+                if sample_to_valid and (
+                    recent_sample_to_valid is None or recent_sample_to_valid
+                ):
                     # current sample goes to validation set, recent sample also went to validation set
                     # no need for skipping
                     valid.append([i - int(self.n_seconds * sr), i])
@@ -105,7 +109,9 @@ class Chunker:
                         break
                     valid.append([i - int(self.n_seconds * sr), i])
                     recent_sample_to_valid = True
-                elif not sample_to_valid and not recent_sample_to_valid:
+                elif not sample_to_valid and (
+                    recent_sample_to_valid is None or not recent_sample_to_valid
+                ):
                     # current sample goes to training set, recent sample went to train,
                     # no need for skipping
                     train.append([i - int(self.n_seconds * sr), i])
