@@ -81,11 +81,11 @@ class RunOptunaForAssembliesConfig:
             "patience": 5,
         }
     )
+    accelerator: str = "auto"
+    precision: str = "32-true"
     n_trials: int = 5_000
     pruner: str = "median"
     sampler: str = "tpe"
-    accelerator: str = "auto"
-    precision: str = "32-true"
     project: str = "default_project"
     study_name: str = "default_study"
 

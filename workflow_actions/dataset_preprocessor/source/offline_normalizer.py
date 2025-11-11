@@ -62,6 +62,7 @@ class OfflineNormalizer:
         mu = mu_f.view(1, -1, 1)
         std = std_f.view(1, -1, 1)
 
+        # TODO: Implement paralelly
         for p in sorted(MODEL_READY_TRAIN_DIR.glob("X_*.pt")):
             x = torch.load(p)  # (1, F, T) float32
             x = (x - mu) / std  # broadcast po F i T
