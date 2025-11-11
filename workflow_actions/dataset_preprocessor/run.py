@@ -7,4 +7,4 @@ from workflow_actions.json_handlers import read_json_to_dict
 prepare_dataset_cfg = read_json_to_dict(DATASET_PREPROCESSOR_CONFIG_PATH)
 dp = DatasetPreprocessor(**prepare_dataset_cfg)
 # Put code doing workflow job here
-dp.prepare_all_songs()
+dp.offline_normalizer()

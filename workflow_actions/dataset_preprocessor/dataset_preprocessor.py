@@ -7,6 +7,7 @@ from workflow_actions.paths import (
     GLOBAL_VALID_INDEX_PATH,
     MODEL_READY_TRAIN_DIR,
     MODEL_READY_VALID_DIR,
+    PIPELINE_RUN_RECORD_PATH,
 )
 from workflow_actions.dataset_preprocessor.source import (
     Chunker,
@@ -14,11 +15,11 @@ from workflow_actions.dataset_preprocessor.source import (
     SpectrogramExtractor,
     SpectrogramAugment,
     load_single_song_to_numpy,
-    encode_song_labels_to_multi_hot_vector,
-    create_label_mapping,
+    LabelEncoder,
+    OfflineNormalizer,
 )
 from workflow_actions.json_handlers import write_dict_to_json, read_json_to_dict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 import torch
 import numpy as np
 from dataclasses import dataclass
@@ -78,18 +79,38 @@ class DatasetPreprocessor:
         spectrogram_extractor: dict,
         spectrogram_augment: dict,
         pipeline_settings: dict,
+        offline_normalization: Literal["per_mel"] | None,
     ):
         self.chunker_cfg = chunker
         self.chunker = Chunker(**self.chunker_cfg)
+
+        self.label_encoder = LabelEncoder()
+
         self.raw_augment = RawAugment(**raw_augment)
-        self.spectrogram_extractor = SpectrogramExtractor(**spectrogram_extractor)
+
+        self._spectrogram_extractor_cfg = spectrogram_extractor
+        self.spectrogram_extractor = SpectrogramExtractor(
+            **self._spectrogram_extractor_cfg
+        )
+
         self.spectrogram_augment = SpectrogramAugment(**spectrogram_augment)
+
+        self._offline_normalization = offline_normalization
+        self.offline_normalizer = (
+            OfflineNormalizer(
+                normalization_type=self._offline_normalization,
+                n_mels=spectrogram_extractor["n_mels"],
+            )
+            if self._offline_normalization is not None
+            else None
+        )
 
         self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = None
         self._global_train_index: dict[str, list[int, int]] | None = None
         self._global_valid_index: dict[str, list[int, int]] | None = None
         # "train"/"valid" -> (MODEL_READY_TRAIN/VALID_DIR, global_train/valid_index)
         self._set_type_to_model_ready_and_global_index_map = None
+        self._INDEX_PRESENT_SONGS = None
 
         self._broken_songs = []
 
@@ -98,8 +119,9 @@ class DatasetPreprocessor:
             list(DOWNLOAD_DIR.iterdir()), key=lambda path: path.name
         )
 
+        self._pipeline_settings = pipeline_settings
         self._PIPELINE_NODES_IN_ORDER = self._gather_pipeline_nodes_in_order(
-            **pipeline_settings
+            **self._pipeline_settings
         )
 
         if self.chunker.sample_rate != self.spectrogram_extractor.sample_rate:
@@ -131,9 +153,11 @@ class DatasetPreprocessor:
     def run_pipeline(self):
         """Populates 03_model_ready with samples."""
         self._load_indexes()
+        self._empty_folder(MODEL_READY_VALID_DIR)
+        self._empty_folder(MODEL_READY_TRAIN_DIR)
         # TODO: Implement outer loop parallely (?)
         for song in self._SONG_ITERATION_ORDER:
-            if song.stem not in self._fragmentation_index.keys():
+            if song.stem not in self._INDEX_PRESENT_SONGS:
                 continue
             state = None
             for node_name, node in self._PIPELINE_NODES_IN_ORDER:
@@ -143,6 +167,10 @@ class DatasetPreprocessor:
                     node(state, song_title=song.stem)
                 else:
                     state = node(state)
+        self._create_all_ys()
+        if self.offline_normalizer:
+            self.offline_normalizer()
+        self._record_pipeline_run()
 
     def pre_epoch_augment_hook(self):
         raise NotImplementedError("Implement this method.")
@@ -206,7 +234,7 @@ class DatasetPreprocessor:
 
     def _get_fragments_spectrograms(
         self,
-        raw_fragments: dict[str, list["NDArray[np.float32]"]] | "FragmentedSongSlices",
+        raw_fragments: dict[str, list["NDArray[np.float32]"]],
     ) -> dict[str, list["NDArray[np.float32]"]]:
         fragments_spectrograms = {
             "train": self.spectrogram_extractor(raw_fragments["train"]),
@@ -264,14 +292,16 @@ class DatasetPreprocessor:
                 )
 
     def _create_all_ys(self):
-        create_label_mapping()
+        self.label_encoder.create_label_mapping()
         for (
             set_path,
             global_index,
         ) in self._set_type_to_model_ready_and_global_index_map.values():
             for song_title, index_range in global_index.items():
-                encoded_song_tags = encode_song_labels_to_multi_hot_vector(
-                    song_title=song_title,
+                encoded_song_tags = (
+                    self.label_encoder.encode_song_labels_to_multi_hot_vector(
+                        song_title=song_title,
+                    )
                 )
                 for absolute_idx in range(index_range[0], index_range[1] + 1):
                     torch.save(
@@ -320,6 +350,7 @@ class DatasetPreprocessor:
             self._fragmentation_index = read_json_to_dict(FRAGMENTATION_INDEX_PATH)[
                 "fragmentation_index"
             ]
+            self._INDEX_PRESENT_SONGS = set(list(self._fragmentation_index.keys()))
             self._global_train_index = read_json_to_dict(GLOBAL_TRAIN_INDEX_PATH)
             self._global_valid_index = read_json_to_dict(GLOBAL_VALID_INDEX_PATH)
             self._set_type_to_model_ready_and_global_index_map = {
@@ -352,6 +383,16 @@ class DatasetPreprocessor:
             FRAGMENTATION_INDEX_PATH,
         )
         global_fragments_index.dump_indexes()
+
+    def _record_pipeline_run(self):
+        cfg = self._pipeline_settings
+        cfg = (
+            cfg | {"spectrogram_extractor": self._spectrogram_extractor_cfg}
+            if self._pipeline_settings["extract_spectrograms"]
+            else cfg
+        )
+        cfg = cfg | {"offline_normalization": self._offline_normalization}
+        write_dict_to_json(cfg, PIPELINE_RUN_RECORD_PATH)
 
     @staticmethod
     def _pass_func(x):
