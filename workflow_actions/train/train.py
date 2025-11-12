@@ -142,6 +142,8 @@ class Train:
     def get_dataloaders(
         batch_size: int = 32,
         num_workers: int = 4,
+        persistent_workers: bool = True,
+        prefetch_factor: int = 2,
         pin_memory: bool = True,
         drop_last: bool = False,
     ):
@@ -153,6 +155,8 @@ class Train:
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_workers,
+            persistent_workers=persistent_workers,
+            prefetch_factor=prefetch_factor,
             pin_memory=pin_memory,
             drop_last=drop_last,
             collate_fn=FragmentsDataset.collate_concat,
@@ -163,6 +167,8 @@ class Train:
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,
+            persistent_workers=persistent_workers,
+            prefetch_factor=prefetch_factor,
             pin_memory=pin_memory,
             drop_last=False,
             collate_fn=FragmentsDataset.collate_concat,

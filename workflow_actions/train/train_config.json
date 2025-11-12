@@ -19,8 +19,10 @@
     }
     ,
     "dataloaders": {
-      "batch_size": 32,
-      "num_workers": 0,
+      "batch_size": 128,
+      "num_workers": 5,
+      "persistent_workers": true,
+      "prefetch_factor": 1,
       "pin_memory": false,
       "drop_last": false
     },
