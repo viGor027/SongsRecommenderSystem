@@ -14,7 +14,7 @@ class SamplePacker:
             raise ValueError("group_size must be >= 1")
         self.group_size = group_size
 
-    def pack(self):
+    def pack(self, *args, **kwargs):
         for folder in [MODEL_READY_TRAIN_DIR, MODEL_READY_VALID_DIR]:
             if not folder.exists():
                 raise FileNotFoundError(f"Data directory does not exist: {folder}")
