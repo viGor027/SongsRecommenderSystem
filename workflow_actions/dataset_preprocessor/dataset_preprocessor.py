@@ -399,7 +399,9 @@ class DatasetPreprocessor:
                 "before running _disc_and_fragmentation_index_integrity_check load_indexes must be run."
             )
 
-        disk_present_songs = set([song.stem for song in DOWNLOAD_DIR.iterdir()])
+        disk_present_songs = set(
+            read_json_to_dict(SCRAPE_STAMP_PATH)["downloaded_songs"]
+        )
         missing = self._INDEX_PRESENT_SONGS - disk_present_songs
         if missing:
             raise RuntimeError(

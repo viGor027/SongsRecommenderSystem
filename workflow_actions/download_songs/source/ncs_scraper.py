@@ -84,14 +84,15 @@ class NCSScraper:
     def _create_scrape_stamp():
         now = datetime.now()
         formatted_time = now.strftime("%Y/%m/%d_%H-%M-%S")
-        fragmentation_stamp = {"time_stamp": formatted_time}
-        write_dict_to_json(fragmentation_stamp, SCRAPE_STAMP_PATH)
+        scrape_stamp = {
+            "time_stamp": formatted_time,
+            "downloaded_songs": list(DOWNLOAD_DIR.iterdir()),
+        }
+        write_dict_to_json(scrape_stamp, SCRAPE_STAMP_PATH)
 
     @staticmethod
     def _sanitize_title(title: str) -> str:
-        """
-        Replace any character except alphanumerics, commas and hyphens with underscore.
-        """
+        """Replace any character except alphanumerics, commas and hyphens with underscore."""
         return re.sub(r"[^0-9A-Za-z,\-]+", "_", title).strip("_")
 
     def _fetch_page(self, page: int) -> BeautifulSoup | None:
@@ -160,10 +161,7 @@ class NCSScraper:
         return entries
 
     def _download_song(self, entry: dict) -> str | None:
-        """
-        Download entry['url'] and save to DOWNLOAD_DIR/<safe_title>.<ext>.
-        Return filename on success.
-        """
+        """Download entry['url'] and save to DOWNLOAD_DIR/<safe_title>.<ext>."""
         try:
             resp = self.session.get(entry["url"], timeout=20)
             resp.raise_for_status()
