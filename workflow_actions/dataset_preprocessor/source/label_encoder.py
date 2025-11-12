@@ -7,21 +7,13 @@ from collections import Counter
 
 class LabelEncoder:
     def __init__(self):
-        if not LABEL_MAPPING_PATH.exists():
-            raise FileExistsError(
-                (
-                    "Labels file label_mapping.json doesn't exist. "
-                    "Call label_encoder.create_label_mapping to create it or"
-                    " put existing label mapping to 01_raw/labels"
-                )
-            )
         if not LABELS_PATH.exists():
             raise FileExistsError("Labels file labels.json doesn't exist.")
 
         self.song_to_labels = read_json_to_dict(LABELS_PATH)
-        self.label_to_int = read_json_to_dict(LABEL_MAPPING_PATH)
-
-        self.n_classes = len(self.label_to_int)
+        self.label_to_int = None
+        self.n_classes = None
+        self._label_mapping_loaded = False
 
         self.EXCLUDED_TAGS = ["N/A"]
 
@@ -44,6 +36,7 @@ class LabelEncoder:
         Encodes songs tags to multi-hot vector.
         **Pass song title without extension.**
         """
+        self._load_label_mapping()
         song_int_tags = [
             self.label_to_int[label]
             for label in self.song_to_labels.get(song_title, [])
@@ -52,3 +45,18 @@ class LabelEncoder:
         one_hot_tags = one_hot(torch.tensor(song_int_tags), num_classes=self.n_classes)
         multi_hot_tags = one_hot_tags.sum(dim=0).clamp(max=1).float()
         return multi_hot_tags
+
+    def _load_label_mapping(self):
+        if self._label_mapping_loaded:
+            return
+        if not LABEL_MAPPING_PATH.exists():
+            raise FileExistsError(
+                (
+                    "Labels file label_mapping.json doesn't exist. "
+                    "Call label_encoder.create_label_mapping to create it or"
+                    " put existing label mapping to 01_raw/labels"
+                )
+            )
+        self.label_to_int = read_json_to_dict(LABEL_MAPPING_PATH)
+        self.n_classes = len(self.label_to_int)
+        self._label_mapping_loaded = True
