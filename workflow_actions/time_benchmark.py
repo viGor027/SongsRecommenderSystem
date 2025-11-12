@@ -27,7 +27,7 @@ def bench(dtype, n=2048, reps=100):
         for _ in range(5):
             a = a * b
         for _ in range(reps):
-            a = a * b
+            a = a @ b
     return a.numel() * reps
 
 
@@ -41,7 +41,7 @@ def main():
     ]
 
     for name, data_type in dtypes:
-        t, n_multiplications = bench(data_type, n=10_000, reps=20)
+        t, n_multiplications = bench(data_type, n=2_000, reps=20)
         print(
             f"- {name:8s}: {t:.3f} s | mnożeń: {n_multiplications:,} | ~{n_multiplications / t:,.0f} mul/s"
         )
