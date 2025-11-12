@@ -392,6 +392,17 @@ class DatasetPreprocessor:
         cfg = cfg | {"offline_normalization": self.offline_normalizer_cfg}
         write_dict_to_json(cfg, PIPELINE_RUN_RECORD_PATH)
 
+    def _disc_and_fragmentation_index_integrity_check(self):
+        if not self._INDEX_PRESENT_SONGS:
+            raise RuntimeError(
+                "before running _disc_and_fragmentation_index_integrity_check load_indexes must be run."
+            )
+        disk_present_songs = set([song.stem for song in DOWNLOAD_DIR.iterdir()])
+        if not self._INDEX_PRESENT_SONGS.issubset(disk_present_songs):
+            raise RuntimeError(
+                "Some song from fragmentation index are not present on disk."
+            )
+
     @staticmethod
     def _pass_func(x):
         return x
