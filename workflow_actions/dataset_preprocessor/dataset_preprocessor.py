@@ -17,6 +17,7 @@ from workflow_actions.dataset_preprocessor.source import (
     load_single_song_to_numpy,
     LabelEncoder,
     OfflineNormalizer,
+    SamplePacker,
 )
 from workflow_actions.json_handlers import write_dict_to_json, read_json_to_dict
 from typing import TYPE_CHECKING
@@ -78,6 +79,7 @@ class DatasetPreprocessor:
         raw_augment: dict,
         spectrogram_extractor: dict,
         spectrogram_augment: dict,
+        sample_packer: dict,
         offline_normalizer: dict,
         pipeline_settings: dict,
     ):
@@ -94,6 +96,8 @@ class DatasetPreprocessor:
         )
 
         self.spectrogram_augment = SpectrogramAugment(**spectrogram_augment)
+
+        self.sample_packer = SamplePacker(**sample_packer)
 
         self.offline_normalizer_cfg = offline_normalizer
         self.offline_normalizer = OfflineNormalizer(**offline_normalizer)
@@ -168,7 +172,6 @@ class DatasetPreprocessor:
                     node(state, song_title=song.stem)
                 else:
                     state = node(state)
-        self._create_all_ys()
         self.offline_normalizer()
         self._record_pipeline_run()
 
@@ -291,7 +294,7 @@ class DatasetPreprocessor:
                     set_path / f"X_{absolute_idx}.pt",
                 )
 
-    def _create_all_ys(self):
+    def _create_all_ys(self, *args, **kwargs):
         for (
             set_path,
             global_index,
@@ -342,6 +345,8 @@ class DatasetPreprocessor:
                 ),
             ),
             ("_serialize_samples", self._serialize_samples),
+            ("_create_all_ys", self._create_all_ys),
+            ("sample_packer.pack", self.sample_packer.pack),
         ]
 
     def _load_indexes(self):

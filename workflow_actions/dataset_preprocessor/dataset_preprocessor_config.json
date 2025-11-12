@@ -51,6 +51,9 @@
     "sample_rate": 22050,
     "n_mels": 80
   },
+  "sample_packer": {
+    "group_size": 16
+  },
   "pipeline_settings": {
     "apply_augmentations_on_raw": false,
     "extract_spectrograms": true,
