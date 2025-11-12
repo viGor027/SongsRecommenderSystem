@@ -153,6 +153,7 @@ class DatasetPreprocessor:
     def run_pipeline(self):
         """Populates 03_model_ready with samples."""
         self._load_indexes()
+        self._disc_and_fragmentation_index_integrity_check()
         self._empty_folder(MODEL_READY_VALID_DIR)
         self._empty_folder(MODEL_READY_TRAIN_DIR)
         # TODO: Implement outer loop parallely (?)
@@ -397,10 +398,12 @@ class DatasetPreprocessor:
             raise RuntimeError(
                 "before running _disc_and_fragmentation_index_integrity_check load_indexes must be run."
             )
+
         disk_present_songs = set([song.stem for song in DOWNLOAD_DIR.iterdir()])
-        if not self._INDEX_PRESENT_SONGS.issubset(disk_present_songs):
+        missing = self._INDEX_PRESENT_SONGS - disk_present_songs
+        if missing:
             raise RuntimeError(
-                "Some song from fragmentation index are not present on disk."
+                f"Some songs from fragmentation index are not present on disk: {missing}"
             )
 
     @staticmethod
