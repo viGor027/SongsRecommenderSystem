@@ -26,6 +26,10 @@ class Assembly(ABC):
     def get_instance_config(self) -> dict:
         pass
 
+    @abstractmethod
+    def _get_normalization_layer(self):
+        pass
+
     def init_classifier(
         self,
         n_classifier_layers: int,

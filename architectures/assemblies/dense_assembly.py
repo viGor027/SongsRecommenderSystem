@@ -29,6 +29,8 @@ class DenseAssembly(nn.Module, Assembly):
 
         self.feature_extractor = None
 
+        self.input_normalization_layer = None
+
     def init_feature_extractor(
         self,
         n_input_channels: int,
@@ -44,6 +46,8 @@ class DenseAssembly(nn.Module, Assembly):
         self.n_embedding_dims = n_embedding_dims
         self.feature_extractor = self._build_feature_extractor()
 
+        self.input_normalization_layer = self._get_normalization_layer()
+
     def _build_feature_extractor(self):
         return BaseClassifier(
             n_layers=self.n_feature_extractor_layers,
@@ -57,7 +61,11 @@ class DenseAssembly(nn.Module, Assembly):
     def _classifier_in_features(self) -> int:
         return self.n_embedding_dims
 
+    def _get_normalization_layer(self):
+        return nn.BatchNorm1d(num_features=self.n_input_channels)
+
     def forward(self, x):
+        x = self.input_normalization_layer(x)
         x = x.reshape((x.size(0), -1))
         x = self.feature_extractor(x)
         out = self.classifier(x)

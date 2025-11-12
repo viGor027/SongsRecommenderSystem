@@ -30,6 +30,8 @@ class RnnDenseAssembly(nn.Module, Assembly):
 
         self.forward_func = None
 
+        self.input_normalization_layer = None
+
     def init_seq_encoder(
         self,
         n_input_channels: int,
@@ -48,6 +50,7 @@ class RnnDenseAssembly(nn.Module, Assembly):
         self.forward_func = (
             self._forward_gru if layer_type == "gru" else self._forward_lstm
         )
+        self.input_normalization_layer = self._get_normalization_layer()
 
     def _build_seq_encoder(self):
         if self.seq_encoder_layer_type == "gru":
@@ -74,7 +77,11 @@ class RnnDenseAssembly(nn.Module, Assembly):
     def _classifier_in_features(self) -> int:
         return self.hidden_size
 
+    def _get_normalization_layer(self):
+        return nn.BatchNorm1d(num_features=self.n_input_channels)
+
     def forward(self, x):
+        x = self.input_normalization_layer(x)
         x = self.forward_func(x)
         return x
 

@@ -85,6 +85,7 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
             self.ConvCls, Conv2DBlockWithSkip
         ):
             x = x.unsqueeze(1)
+        x = self.input_normalization_layer(x)
         x = self.conv(x)
         x = x.reshape((x.size(0), -1))
         x = self.seq_encoder(x)

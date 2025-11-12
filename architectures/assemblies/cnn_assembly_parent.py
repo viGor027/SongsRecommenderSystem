@@ -22,6 +22,7 @@ class CnnAssemblyParent(Assembly):
         self.n_input_channels = None
 
         self.conv = None
+        self.input_normalization_layer = None
 
     def init_conv(
         self,
@@ -50,6 +51,7 @@ class CnnAssemblyParent(Assembly):
         self.n_input_channels = n_input_channels
 
         self.conv = self._build_conv()
+        self.input_normalization_layer = self._get_normalization_layer()
 
     def _build_conv(self):
         blocks = []
@@ -96,6 +98,21 @@ class CnnAssemblyParent(Assembly):
             else filtered_optional_kwargs
         )
         return partially_initialized_ConvCls(**filtered_optional_kwargs)
+
+    def _get_normalization_layer(self):
+        from architectures.model_components.temporal_compressor.convolutional.conv2d_no_skip import (
+            Conv2DBlockNoSkip,
+        )
+        from architectures.model_components.temporal_compressor.convolutional.conv2d_with_skip import (
+            Conv2DBlockWithSkip,
+        )
+
+        if issubclass(self.ConvCls, Conv2DBlockNoSkip) or issubclass(
+            self.ConvCls, Conv2DBlockWithSkip
+        ):
+            return nn.BatchNorm2d(num_features=self.n_input_channels)
+        else:
+            return nn.BatchNorm1d(num_features=self.n_input_channels)
 
     def get_temporal_compressor_config(self) -> dict:
         # Note:

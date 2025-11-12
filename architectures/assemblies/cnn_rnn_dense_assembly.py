@@ -78,6 +78,7 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         return self.hidden_size
 
     def forward(self, x):
+        x = self.input_normalization_layer(x)
         x = self.forward_func(x)
         return x
 
