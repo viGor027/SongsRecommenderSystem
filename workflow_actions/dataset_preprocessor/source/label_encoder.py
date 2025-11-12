@@ -46,7 +46,7 @@ class LabelEncoder:
         """
         song_int_tags = [
             self.label_to_int[label]
-            for label in self.song_to_labels[song_title]
+            for label in self.song_to_labels.get(song_title, [])
             if (label not in self.EXCLUDED_TAGS and label in self.label_to_int.keys())
         ]
         one_hot_tags = one_hot(torch.tensor(song_int_tags), num_classes=self.n_classes)
