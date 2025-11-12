@@ -11,7 +11,8 @@ class LabelEncoder:
             raise FileExistsError(
                 (
                     "Labels file label_mapping.json doesn't exist. "
-                    "Call label_encoder.create_label_mapping to create it."
+                    "Call label_encoder.create_label_mapping to create it or"
+                    " put existing label mapping to 01_raw/labels"
                 )
             )
         if not LABELS_PATH.exists():
@@ -46,7 +47,7 @@ class LabelEncoder:
         song_int_tags = [
             self.label_to_int[label]
             for label in self.song_to_labels[song_title]
-            if label not in self.EXCLUDED_TAGS
+            if (label not in self.EXCLUDED_TAGS and label in self.label_to_int.keys())
         ]
         one_hot_tags = one_hot(torch.tensor(song_int_tags), num_classes=self.n_classes)
         multi_hot_tags = one_hot_tags.sum(dim=0).clamp(max=1).float()

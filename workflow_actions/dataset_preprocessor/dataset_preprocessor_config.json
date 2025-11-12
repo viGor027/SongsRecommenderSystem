@@ -56,5 +56,8 @@
     "extract_spectrograms": true,
     "apply_augmentations_on_spectrograms": false
   },
-  "offline_normalization": "per_mel"
+  "offline_normalizer": {
+    "n_mels": 80,
+    "normalization_type": null
+  }
 }

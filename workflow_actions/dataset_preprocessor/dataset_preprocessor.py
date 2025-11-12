@@ -19,7 +19,7 @@ from workflow_actions.dataset_preprocessor.source import (
     OfflineNormalizer,
 )
 from workflow_actions.json_handlers import write_dict_to_json, read_json_to_dict
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 import torch
 import numpy as np
 from dataclasses import dataclass
@@ -78,8 +78,8 @@ class DatasetPreprocessor:
         raw_augment: dict,
         spectrogram_extractor: dict,
         spectrogram_augment: dict,
+        offline_normalizer: dict,
         pipeline_settings: dict,
-        offline_normalization: Literal["per_mel"] | None,
     ):
         self.chunker_cfg = chunker
         self.chunker = Chunker(**self.chunker_cfg)
@@ -95,15 +95,8 @@ class DatasetPreprocessor:
 
         self.spectrogram_augment = SpectrogramAugment(**spectrogram_augment)
 
-        self._offline_normalization = offline_normalization
-        self.offline_normalizer = (
-            OfflineNormalizer(
-                normalization_type=self._offline_normalization,
-                n_mels=spectrogram_extractor["n_mels"],
-            )
-            if self._offline_normalization is not None
-            else None
-        )
+        self.offline_normalizer_cfg = offline_normalizer
+        self.offline_normalizer = OfflineNormalizer(**offline_normalizer)
 
         self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = None
         self._global_train_index: dict[str, list[int, int]] | None = None
@@ -128,7 +121,14 @@ class DatasetPreprocessor:
             raise ValueError(
                 (
                     "Chunker sample rate must match SpectrogramExtractor sample rate. ",
-                    "Check prepare_dataset_config.json values.",
+                    "Check dataset_preprocessor_config.json values.",
+                )
+            )
+        if self.offline_normalizer.n_mels != self.spectrogram_extractor.n_mels:
+            raise ValueError(
+                (
+                    "OfflineNormalizer n_mels must match SpectrogramExtractor n_mels. ",
+                    "Check dataset_preprocessor_config.json values.",
                 )
             )
 
@@ -168,8 +168,7 @@ class DatasetPreprocessor:
                 else:
                     state = node(state)
         self._create_all_ys()
-        if self.offline_normalizer:
-            self.offline_normalizer()
+        self.offline_normalizer()
         self._record_pipeline_run()
 
     def pre_epoch_augment_hook(self):
@@ -292,7 +291,6 @@ class DatasetPreprocessor:
                 )
 
     def _create_all_ys(self):
-        self.label_encoder.create_label_mapping()
         for (
             set_path,
             global_index,
@@ -391,7 +389,7 @@ class DatasetPreprocessor:
             if self._pipeline_settings["extract_spectrograms"]
             else cfg
         )
-        cfg = cfg | {"offline_normalization": self._offline_normalization}
+        cfg = cfg | {"offline_normalization": self.offline_normalizer_cfg}
         write_dict_to_json(cfg, PIPELINE_RUN_RECORD_PATH)
 
     @staticmethod

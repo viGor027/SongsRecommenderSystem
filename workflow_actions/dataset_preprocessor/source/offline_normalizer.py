@@ -9,8 +9,9 @@ class OfflineNormalizer:
     def __init__(
         self,
         n_mels: int,
-        normalization_type=Literal["per_mel"],
+        normalization_type=Literal["per_mel"] | None,
     ):
+        """Nothing happens when called with normalization_type == None"""
         from workflow_actions.train.source.dataloading.fragments_dataset import (
             FragmentsDataset,
         )
@@ -23,19 +24,25 @@ class OfflineNormalizer:
             num_workers=0,
             pin_memory=False,
         )
-        self._n_mels = n_mels
+        self.n_mels = n_mels
         compute_norm_map = {
             "per_mel": (
-                partial(self.compute_norm_values_per_mel, n_mels=self._n_mels),
+                partial(self.compute_norm_values_per_mel, n_mels=self.n_mels),
                 self._apply_compute_norm_values_per_mel,
             )
         }
-        self._norm_package = compute_norm_map[normalization_type]
+        self._normalization_type = normalization_type
+        self._norm_package = (
+            compute_norm_map[self._normalization_type]
+            if self._normalization_type
+            else tuple()
+        )
 
     def __call__(self):
-        param_function, apply_function = self._norm_package
-        params = param_function()
-        apply_function(*params)
+        if self._normalization_type:
+            param_function, apply_function = self._norm_package
+            params = param_function()
+            apply_function(*params)
 
     def compute_norm_values_per_mel(self, n_mels: int, eps: float = 1e-6):
         """
