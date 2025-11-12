@@ -12,18 +12,6 @@ class OfflineNormalizer:
         normalization_type=Literal["per_mel"] | None,
     ):
         """Nothing happens when called with normalization_type == None"""
-        from workflow_actions.train.source.dataloading.fragments_dataset import (
-            FragmentsDataset,
-        )
-
-        self._train_loader = DataLoader(
-            FragmentsDataset("train"),
-            batch_size=64,
-            shuffle=True,
-            collate_fn=FragmentsDataset.collate_concat,
-            num_workers=0,
-            pin_memory=False,
-        )
         self.n_mels = n_mels
         compute_norm_map = {
             "per_mel": (
@@ -40,6 +28,7 @@ class OfflineNormalizer:
 
     def __call__(self):
         if self._normalization_type:
+            self._init_train_loader()
             param_function, apply_function = self._norm_package
             params = param_function()
             apply_function(*params)
@@ -74,3 +63,16 @@ class OfflineNormalizer:
             x = torch.load(p)  # (1, F, T) float32
             x = (x - mu) / std  # broadcast po F i T
             torch.save(x, p)
+
+    def _init_train_loader(self):
+        from workflow_actions.train.source.dataloading.fragments_dataset import (
+            FragmentsDataset,
+        )
+        self._train_loader = DataLoader(
+            FragmentsDataset("train"),
+            batch_size=64,
+            shuffle=True,
+            collate_fn=FragmentsDataset.collate_concat,
+            num_workers=0,
+            pin_memory=False,
+        )
