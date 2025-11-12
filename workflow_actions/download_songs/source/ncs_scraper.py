@@ -86,7 +86,7 @@ class NCSScraper:
         formatted_time = now.strftime("%Y/%m/%d_%H-%M-%S")
         scrape_stamp = {
             "time_stamp": formatted_time,
-            "downloaded_songs": list(DOWNLOAD_DIR.iterdir()),
+            "downloaded_songs": [path.stem for path in DOWNLOAD_DIR.iterdir()],
         }
         write_dict_to_json(scrape_stamp, SCRAPE_STAMP_PATH)
 
