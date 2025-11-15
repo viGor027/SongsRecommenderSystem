@@ -18,7 +18,7 @@ class FragmentsDataset(Dataset):
         self.files = [
             str(path)
             for path in sorted(
-                self.data_path.glob("sample_*.pt"),
+                self.data_path.glob("shard_*.pt"),
                 key=lambda p: int(p.stem.split("_", 1)[1]),
             )
         ]
