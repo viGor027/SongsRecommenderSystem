@@ -15,14 +15,20 @@ class FragmentsDataset(Dataset):
         if not self.data_path.exists():
             raise FileNotFoundError(f"Data directory does not exist: {self.data_path}")
 
-        data_dir_elems = list(self.data_path.iterdir())
-        self.n_elements_in_data_dir = len(data_dir_elems)
+        self.files = [
+            str(path)
+            for path in sorted(
+                self.data_path.glob("sample_*.pt"),
+                key=lambda p: int(p.stem.split("_", 1)[1]),
+            )
+        ]
 
     def __len__(self):
-        return self.n_elements_in_data_dir
+        return len(self.files)
 
     def __getitem__(self, idx):
-        d = torch.load(self.data_path / f"sample_{idx}.pt", map_location="cpu")
+        path = self.files[idx]
+        d = torch.load(path, map_location="cpu")
         return d["X"], d["y"]
 
     @staticmethod

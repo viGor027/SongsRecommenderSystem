@@ -19,11 +19,11 @@
     }
     ,
     "dataloaders": {
-      "batch_size": 128,
+      "batch_size": 4,
       "num_workers": 5,
       "persistent_workers": true,
-      "prefetch_factor": 1,
-      "pin_memory": false,
+      "prefetch_factor": 3,
+      "pin_memory": true,
       "drop_last": false
     },
     "hparams": {
@@ -33,7 +33,8 @@
     "early_stopping": {
       "monitor": "val_loss",
       "mode": "min",
-      "patience": 5
+      "patience": 5,
+      "verbose": true
     },
     "accelerator": "auto",
     "precision": "32-true",
