@@ -124,7 +124,7 @@ class Train:
             "median": partial(
                 MedianPruner,
                 n_startup_trials=50,
-                n_warmup_steps=0,
+                n_warmup_steps=3,
                 interval_steps=1,
             ),
         }
