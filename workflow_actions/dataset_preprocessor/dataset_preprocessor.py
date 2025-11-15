@@ -172,7 +172,8 @@ class DatasetPreprocessor:
                     node(state, song_title=song.stem)
                 else:
                     state = node(state)
-        self.offline_normalizer()
+        self._create_all_ys()
+        self.sample_packer.pack()
         self._record_pipeline_run()
 
     def pre_epoch_augment_hook(self):
@@ -294,7 +295,7 @@ class DatasetPreprocessor:
                     set_path / f"X_{absolute_idx}.pt",
                 )
 
-    def _create_all_ys(self, *args, **kwargs):
+    def _create_all_ys(self):
         for (
             set_path,
             global_index,
@@ -345,8 +346,6 @@ class DatasetPreprocessor:
                 ),
             ),
             ("_serialize_samples", self._serialize_samples),
-            ("_create_all_ys", self._create_all_ys),
-            ("sample_packer.pack", self.sample_packer.pack),
         ]
 
     def _load_indexes(self):
