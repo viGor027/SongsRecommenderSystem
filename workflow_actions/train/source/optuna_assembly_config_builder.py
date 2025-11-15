@@ -21,6 +21,7 @@ class OptunaAssemblyConfigBuilder:
         n_input_channels: int,
         n_embedding_dims: int,
         n_classes: int,
+        optuna_step: int,
         trial: optuna.Trial | None = None,
     ):
         """
@@ -56,6 +57,8 @@ class OptunaAssemblyConfigBuilder:
         self.n_input_channels = n_input_channels
         self.n_embedding_dims = n_embedding_dims
         self.n_classes = n_classes
+
+        self.optuna_step = optuna_step
 
         self.available_assemblies = assemblies
 
@@ -146,6 +149,7 @@ class OptunaAssemblyConfigBuilder:
                     self.trial.suggest_int(
                         f"{assembly_name}/n_filters_per_block_{i}",
                         *self.cnn_dense_bounds.n_filters_per_block,
+                        step=self.optuna_step,
                     )
                     for i in range(n_blocks)
                 ],
@@ -156,6 +160,7 @@ class OptunaAssemblyConfigBuilder:
                         self.trial.suggest_int(
                             f"{assembly_name}/n_filters_skip_{i}",
                             *self.cnn_dense_bounds.n_filters_per_skip,
+                            step=self.optuna_step,
                         )
                         for i in range(n_blocks)
                     ]
@@ -173,6 +178,7 @@ class OptunaAssemblyConfigBuilder:
                     self.trial.suggest_int(
                         f"{assembly_name}/n_units_per_seq_encoder_layer_{i}",
                         *self.cnn_dense_bounds.n_units_per_seq_encoder_layer,
+                        step=self.optuna_step,
                     )
                     for i in range(n_seq_encoder_layers - 1)
                 ],
@@ -207,6 +213,7 @@ class OptunaAssemblyConfigBuilder:
                     self.trial.suggest_int(
                         f"{assembly_name}/n_filters_per_block_{i}",
                         *self.cnn_rnn_dense_bounds.n_filters_per_block,
+                        step=self.optuna_step,
                     )
                     for i in range(n_blocks)
                 ],
@@ -217,6 +224,7 @@ class OptunaAssemblyConfigBuilder:
                         self.trial.suggest_int(
                             f"{assembly_name}/n_filters_skip_{i}",
                             *self.cnn_rnn_dense_bounds.n_filters_per_skip,
+                            step=self.optuna_step,
                         )
                         for i in range(n_blocks)
                     ]
@@ -258,6 +266,7 @@ class OptunaAssemblyConfigBuilder:
                     self.trial.suggest_int(
                         f"{assembly_name}/n_units_per_feature_extractor_layer_{i}",
                         *self.dense_bounds.n_units_per_feature_extractor_layer,
+                        step=self.optuna_step,
                     )
                     for i in range(n_feature_extractor_layers - 1)
                 ],
