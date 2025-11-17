@@ -123,8 +123,8 @@ class Train:
         self.PRUNERS_MAP = {
             "median": partial(
                 MedianPruner,
-                n_startup_trials=50,
-                n_warmup_steps=3,
+                n_startup_trials=int(self.optuna_config.n_trials * 0.15),
+                n_warmup_steps=5,
                 interval_steps=1,
             ),
         }
@@ -132,7 +132,7 @@ class Train:
         self.SAMPLERS_MAP = {
             "tpe": partial(
                 TPESampler,
-                n_startup_trials=50,
+                n_startup_trials=int(self.optuna_config.n_trials * 0.15),
                 multivariate=True,
                 group=True,
             ),

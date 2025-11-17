@@ -2,9 +2,9 @@
   "run_optuna_for_assemblies_config": {
     "dataloaders": {
       "batch_size": 2,
-      "num_workers": 4,
+      "num_workers": 1,
       "persistent_workers": true,
-      "prefetch_factor": 2,
+      "prefetch_factor": 12,
       "pin_memory": true,
       "drop_last": false
     },
@@ -17,44 +17,33 @@
       "mode": "min",
       "patience": 5
     },
-    "n_trials": 350,
+    "n_trials": 100,
     "pruner": "median",
     "sampler": "tpe",
     "accelerator": "auto",
     "precision": "32-true",
     "project": "SongRecommenderSystem",
-    "study_name": "optuna_search_1"
+    "study_name": "DenseSearch1"
   },
   "optuna_assembly_config_builder_params": {
     "input_len": 216,
     "n_input_channels": 80,
-    "n_embedding_dims": 512,
+    "n_embedding_dims": 384,
     "n_classes": 110,
     "optuna_step": 32,
     "assemblies": [
-      "DenseAssembly",
-      "CnnDenseAssembly"
+      "DenseAssembly"
     ],
     "blocks": {
-      "cnn_dense_assembly_blocks": [
-        "Conv2DBlockWithSkip",
-        "Conv2DBlockNoSkip"
-      ],
+      "cnn_dense_assembly_blocks": null,
       "cnn_rnn_dense_assembly_blocks": null
     },
     "rnn_dense_bounds": null,
-    "cnn_dense_bounds":{
-      "n_blocks": [1,4],
-      "n_layers_per_block": [1,6],
-      "n_filters_per_block": [16, 256],
-      "n_filters_per_skip": [16, 128],
-      "n_seq_encoder_layers": [1, 5],
-      "n_units_per_seq_encoder_layer": [32, 768]
-    },
+    "cnn_dense_bounds": null,
     "cnn_rnn_dense_bounds": null,
     "dense_bounds":{
-      "n_feature_extractor_layers": [2, 8],
-      "n_units_per_feature_extractor_layer": [32, 512]
+      "n_feature_extractor_layers": [1, 7],
+      "n_units_per_feature_extractor_layer": [128, 768]
     }
   }
 }
