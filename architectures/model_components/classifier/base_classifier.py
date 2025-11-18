@@ -15,7 +15,7 @@ class BaseClassifier(nn.Module):
         n_input_features: int,
         units_per_layer: list[int],
         n_classes: int,
-        activation: Literal["relu", "hardswish"] | None = "relu",
+        activation: Literal["relu", "hardswish"] | None = None,
         sigmoid_output: bool = True,
         dtype: torch.dtype = torch.float32,
     ):

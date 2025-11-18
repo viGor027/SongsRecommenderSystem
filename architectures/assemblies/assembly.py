@@ -35,7 +35,7 @@ class Assembly(ABC):
         n_classifier_layers: int,
         n_units_per_classifier_layer: list[int],
         n_classes: int,
-        classifier_activation: Literal["relu", "hardswish"] = "relu",
+        classifier_activation: Literal["relu", "hardswish"] = None,
         sigmoid_output: bool = True,
     ):
         self.n_classifier_layers = n_classifier_layers
