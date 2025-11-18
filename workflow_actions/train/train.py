@@ -120,10 +120,15 @@ class Train:
 
         self.model_initializer = ModelInitializer()
 
+        n_startup_trials = (
+            int(self.optuna_config.n_trials * 0.15)
+            if self.optuna_config is not None
+            else 1
+        )
         self.PRUNERS_MAP = {
             "median": partial(
                 MedianPruner,
-                n_startup_trials=int(self.optuna_config.n_trials * 0.15),
+                n_startup_trials=n_startup_trials,
                 n_warmup_steps=5,
                 interval_steps=1,
             ),
@@ -132,7 +137,7 @@ class Train:
         self.SAMPLERS_MAP = {
             "tpe": partial(
                 TPESampler,
-                n_startup_trials=int(self.optuna_config.n_trials * 0.15),
+                n_startup_trials=n_startup_trials,
                 multivariate=True,
                 group=True,
             ),

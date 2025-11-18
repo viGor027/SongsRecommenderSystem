@@ -38,10 +38,12 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         self,
         n_seq_encoder_layers: int,
         n_units_per_seq_encoder_layer: list[int],
+        seq_encoder_activation: str,
         n_embedding_dims: int,
     ):
         self.n_seq_encoder_layers = n_seq_encoder_layers
         self.n_units_per_seq_encoder_layer = n_units_per_seq_encoder_layer
+        self.seq_encoder_activation = seq_encoder_activation
         self.n_embedding_dims = n_embedding_dims
         self.seq_encoder = self._build_seq_encoder()
 
@@ -51,6 +53,7 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
             n_layers=self.n_seq_encoder_layers,
             n_input_features=self.seq_encoder_input_features,
             units_per_layer=self.n_units_per_seq_encoder_layer,
+            activation=self.seq_encoder_activation,
             n_classes=self.n_embedding_dims,
             sigmoid_output=False,
         )
@@ -99,6 +102,7 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
             "sequence_encoder": {
                 "n_seq_encoder_layers": self.n_seq_encoder_layers,
                 "n_units_per_seq_encoder_layer": self.n_units_per_seq_encoder_layer,
+                "seq_encoder_activation": self.seq_encoder_activation,
                 "n_embedding_dims": self.n_embedding_dims,
             },
             "classifier": self.get_classifier_config(),

@@ -10,40 +10,47 @@
     },
     "hparams": {
       "epochs": 100,
-      "learning_rate": 0.002
+      "learning_rate": 0.003
     },
     "early_stopping": {
       "monitor": "val_loss",
       "mode": "min",
-      "patience": 5
+      "patience": 4
     },
-    "n_trials": 100,
+    "n_trials": 60,
     "pruner": "median",
     "sampler": "tpe",
     "accelerator": "auto",
     "precision": "32-true",
     "project": "SongRecommenderSystem",
-    "study_name": "DenseSearch1"
+    "study_name": "CnnDenseC2DSearch1"
   },
   "optuna_assembly_config_builder_params": {
     "input_len": 216,
     "n_input_channels": 80,
     "n_embedding_dims": 384,
     "n_classes": 110,
-    "optuna_step": 32,
+    "optuna_step": 4,
     "assemblies": [
-      "DenseAssembly"
+      "CnnDenseAssembly"
     ],
     "blocks": {
-      "cnn_dense_assembly_blocks": null,
+      "cnn_dense_assembly_blocks": [
+        "Conv2DBlockWithSkip",
+        "Conv2DBlockNoSkip"
+      ],
       "cnn_rnn_dense_assembly_blocks": null
     },
     "rnn_dense_bounds": null,
-    "cnn_dense_bounds": null,
+    "cnn_dense_bounds":{
+      "n_blocks": [5,6],
+      "n_layers_per_block": [1,1],
+      "n_filters_per_block": [4, 96],
+      "n_filters_per_skip": [4, 32],
+      "n_seq_encoder_layers": [1, 2],
+      "n_units_per_seq_encoder_layer": [320, 448]
+    },
     "cnn_rnn_dense_bounds": null,
-    "dense_bounds":{
-      "n_feature_extractor_layers": [1, 7],
-      "n_units_per_feature_extractor_layer": [128, 768]
-    }
+    "dense_bounds": null
   }
 }

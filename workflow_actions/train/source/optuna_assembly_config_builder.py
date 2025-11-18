@@ -182,6 +182,9 @@ class OptunaAssemblyConfigBuilder:
                     )
                     for i in range(n_seq_encoder_layers - 1)
                 ],
+                "seq_encoder_activation": self.trial.suggest_categorical(
+                    f"{assembly_name}/seq_encoder_activation", self.ACTIVATIONS
+                ),
                 "n_embedding_dims": self.n_embedding_dims,
             },
             "classifier": self._get_classifier_config(),
