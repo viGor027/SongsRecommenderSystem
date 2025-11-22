@@ -30,7 +30,7 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
 
         self.seq_encoder = None
 
-        self.forward_func = None
+        self.forward_rec = None
 
     def init_seq_encoder(
         self,
@@ -45,7 +45,7 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         self.seq_encoder_layer_type = layer_type
         self.seq_encoder = self._build_seq_encoder()
 
-        self.forward_func = (
+        self.forward_rec = (
             self._forward_gru if layer_type == "gru" else self._forward_lstm
         )
 
@@ -78,24 +78,26 @@ class CnnRnnDenseAssembly(nn.Module, CnnAssemblyParent):
         return self.hidden_size
 
     def forward(self, x):
+        x = self.make_embeddings(x)
+        x = self.classifier(x)
+        return x
+
+    def make_embeddings(self, x):
         x = self.input_normalization_layer(x)
-        x = self.forward_func(x)
+        x = self.conv(x)
+        x = self.forward_rec(x)
         return x
 
     def _forward_gru(self, x):
-        x = self.conv(x)
         x = x.permute(0, 2, 1)
         _, h_n = self.seq_encoder(x)
         x = h_n[-1]
-        x = self.classifier(x)
         return x
 
     def _forward_lstm(self, x):
-        x = self.conv(x)
         x = x.permute(0, 2, 1)
         _, (h_n, _) = self.seq_encoder(x)
         x = h_n[-1]
-        x = self.classifier(x)
         return x
 
     def get_instance_config(self) -> dict:

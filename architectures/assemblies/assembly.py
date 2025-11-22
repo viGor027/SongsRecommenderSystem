@@ -23,6 +23,10 @@ class Assembly(ABC):
         pass
 
     @abstractmethod
+    def make_embeddings(self, x):
+        pass
+
+    @abstractmethod
     def get_instance_config(self) -> dict:
         pass
 

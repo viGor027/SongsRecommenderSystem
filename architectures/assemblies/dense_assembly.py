@@ -65,11 +65,15 @@ class DenseAssembly(nn.Module, Assembly):
         return nn.BatchNorm1d(num_features=self.n_input_channels)
 
     def forward(self, x):
+        x = self.make_embeddings(x)
+        out = self.classifier(x)
+        return out
+
+    def make_embeddings(self, x):
         x = x.reshape((x.size(0), -1))
         x = self.input_normalization_layer(x)
         x = self.feature_extractor(x)
-        out = self.classifier(x)
-        return out
+        return x
 
     def get_instance_config(self) -> dict:
         return {

@@ -84,6 +84,11 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         return self.n_embedding_dims
 
     def forward(self, x):
+        x = self.make_embeddings(x)
+        x = self.classifier(x)
+        return x
+
+    def make_embeddings(self, x):
         if issubclass(self.ConvCls, Conv2DBlockNoSkip) or issubclass(
             self.ConvCls, Conv2DBlockWithSkip
         ):
@@ -92,7 +97,6 @@ class CnnDenseAssembly(nn.Module, CnnAssemblyParent):
         x = self.conv(x)
         x = x.reshape((x.size(0), -1))
         x = self.seq_encoder(x)
-        x = self.classifier(x)
         return x
 
     def get_instance_config(self) -> dict:

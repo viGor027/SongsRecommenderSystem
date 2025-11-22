@@ -149,6 +149,11 @@ class CnnAssemblyParent(Assembly):
             "CnnAssemblyParent class is not meant to initialize objects."
         )
 
+    def make_embeddings(self, x):
+        raise NotImplementedError(
+            "CnnAssemblyParent class is not meant to initialize objects."
+        )
+
     def get_instance_config(self) -> dict:
         raise NotImplementedError(
             "CnnAssemblyParent class is not meant to initialize objects."
