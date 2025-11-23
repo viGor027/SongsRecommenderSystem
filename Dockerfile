@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     rsync \
     openssh-server \
     tmux \
+    nano \
  && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /var/run/sshd
@@ -13,6 +14,7 @@ WORKDIR /app
 
 COPY pyproject.toml .
 COPY uv.lock .
+COPY Makefile .
 
 COPY architectures/ architectures/
 COPY workflow_actions/*.py workflow_actions/
@@ -21,6 +23,7 @@ COPY workflow_actions/__init__.py workflow_actions/
 COPY workflow_actions/dataset_preprocessor/ workflow_actions/dataset_preprocessor/
 
 RUN pip install --no-cache-dir uv \
- && uv sync --frozen
+ && uv sync --frozen \
+ && echo "export PYTHONPATH=/app" >> /root/.bashrc
 
 CMD ["bash"]
