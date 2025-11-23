@@ -25,5 +25,6 @@ COPY workflow_actions/dataset_preprocessor/ workflow_actions/dataset_preprocesso
 RUN pip install --no-cache-dir uv \
  && uv sync --frozen \
  && echo "export PYTHONPATH=/app" >> /root/.bashrc
+RUN touch /root/.no_auto_tmux
 
 CMD ["bash"]

@@ -1,56 +1,54 @@
 {
-  "run_optuna_for_assemblies_config": {
+  "run_single_training_config": {
+    "architecture": {
+      "class_name": "CnnDenseAssembly",
+      "temporal_compressor":{
+        "ConvCls": "Conv2DBlockWithSkip",
+        "n_blocks": 5,
+        "n_input_channels": 1,
+        "n_layers_per_block": [1, 1, 1, 1, 1],
+        "n_filters_per_block": [64, 64, 64, 64, 64],
+        "n_filters_per_skip": [32, 32, 32, 32, 32],
+        "conv_activation": "hardswish",
+        "reduction_strat": "conv"
+      },
+      "sequence_encoder": {
+        "n_seq_encoder_layers": 3,
+        "n_units_per_seq_encoder_layer": [448, 448],
+        "seq_encoder_activation": "hardswish",
+        "n_embedding_dims": 384
+      },
+      "classifier": {
+        "n_classifier_layers": 1,
+        "n_units_per_classifier_layer": [],
+        "n_classes": 110,
+        "classifier_activation": null,
+        "sigmoid_output": true
+      }
+    }
+    ,
     "dataloaders": {
       "batch_size": 2,
-      "num_workers": 1,
+      "num_workers": 2,
       "persistent_workers": true,
-      "prefetch_factor": 12,
+      "prefetch_factor": 20,
       "pin_memory": true,
       "drop_last": false
     },
     "hparams": {
-      "epochs": 100,
-      "learning_rate": 0.003
+      "learning_rate": 1e-4,
+      "epochs": 100
     },
     "early_stopping": {
       "monitor": "val_loss",
       "mode": "min",
-      "patience": 4
+      "patience": 4,
+      "verbose": true
     },
-    "n_trials": 60,
-    "pruner": "median",
-    "sampler": "tpe",
     "accelerator": "auto",
-    "precision": "32-true",
-    "project": "SongRecommenderSystem",
-    "study_name": "CnnDenseC2DSearch1"
-  },
-  "optuna_assembly_config_builder_params": {
-    "input_len": 216,
-    "n_input_channels": 80,
-    "n_embedding_dims": 384,
-    "n_classes": 110,
-    "optuna_step": 4,
-    "assemblies": [
-      "CnnDenseAssembly"
-    ],
-    "blocks": {
-      "cnn_dense_assembly_blocks": [
-        "Conv2DBlockWithSkip",
-        "Conv2DBlockNoSkip"
-      ],
-      "cnn_rnn_dense_assembly_blocks": null
-    },
-    "rnn_dense_bounds": null,
-    "cnn_dense_bounds":{
-      "n_blocks": [5,6],
-      "n_layers_per_block": [1,1],
-      "n_filters_per_block": [4, 96],
-      "n_filters_per_skip": [4, 32],
-      "n_seq_encoder_layers": [1, 2],
-      "n_units_per_seq_encoder_layer": [320, 448]
-    },
-    "cnn_rnn_dense_bounds": null,
-    "dense_bounds": null
+    "precision": "bf16-true",
+    "project": "WB_tests",
+    "run_name": "SPPED_TEST_REMOTE_bf16_true",
+    "do_pre_epoch_hook": false
   }
 }

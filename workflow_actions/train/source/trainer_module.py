@@ -19,8 +19,9 @@ class TrainerModule(L.LightningModule):
 
         self.do_pre_epoch_hook = do_pre_epoch_hook
 
-        prepare_dataset_cfg = read_json_to_dict(DATASET_PREPROCESSOR_CONFIG_PATH)
-        self.dp = DatasetPreprocessor(**prepare_dataset_cfg)
+        if do_pre_epoch_hook:
+            prepare_dataset_cfg = read_json_to_dict(DATASET_PREPROCESSOR_CONFIG_PATH)
+            self.dp = DatasetPreprocessor(**prepare_dataset_cfg)
 
     def forward(self, x):
         x = self.model(x)
