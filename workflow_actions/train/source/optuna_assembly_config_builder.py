@@ -178,7 +178,7 @@ class OptunaAssemblyConfigBuilder:
                     self.trial.suggest_int(
                         f"{assembly_name}/n_units_per_seq_encoder_layer_{i}",
                         *self.cnn_dense_bounds.n_units_per_seq_encoder_layer,
-                        step=self.optuna_step,
+                        step=self.optuna_step * 4,
                     )
                     for i in range(n_seq_encoder_layers - 1)
                 ],
@@ -269,7 +269,7 @@ class OptunaAssemblyConfigBuilder:
                     self.trial.suggest_int(
                         f"{assembly_name}/n_units_per_feature_extractor_layer_{i}",
                         *self.dense_bounds.n_units_per_feature_extractor_layer,
-                        step=self.optuna_step,
+                        step=self.optuna_step * 4,
                     )
                     for i in range(n_feature_extractor_layers - 1)
                 ],
