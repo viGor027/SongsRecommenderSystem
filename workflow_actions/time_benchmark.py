@@ -32,7 +32,7 @@ def bench(dtype, n=2048, reps=100):
 
 
 def main():
-    print(f"GPU użyte: {gpu_used}")
+    print(f"GPU used: {gpu_used}")
     dtypes = [
         ("float64", torch.float64),
         ("float32", torch.float32),
@@ -41,7 +41,7 @@ def main():
     ]
 
     for name, data_type in dtypes:
-        t, n_multiplications = bench(data_type, n=2_000, reps=20)
+        t, n_multiplications = bench(data_type, n=5_000, reps=20)
         print(
             f"- {name:8s}: {t:.3f} s | mnożeń: {n_multiplications:,} | ~{n_multiplications / t:,.0f} mul/s"
         )
