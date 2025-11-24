@@ -28,10 +28,11 @@
     }
     ,
     "dataloaders": {
-      "batch_size": 2,
-      "num_workers": 2,
-      "persistent_workers": true,
-      "prefetch_factor": 20,
+      "dataset_type": "ram_dataset",
+      "batch_size": 32,
+      "num_workers": 0,
+      "persistent_workers": false,
+      "prefetch_factor": null,
       "pin_memory": true,
       "drop_last": false
     },

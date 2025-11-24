@@ -9,6 +9,7 @@ from workflow_actions.train.source import (
     ModelInitializer,
     OptunaAssemblyConfigBuilder,
     FragmentsDataset,
+    RamDataset,
 )
 from workflow_actions.paths import TRAINED_MODELS_DIR
 from optuna.samplers import TPESampler
@@ -143,8 +144,14 @@ class Train:
             ),
         }
 
-    @staticmethod
+        self._dataset_cache = {
+            "train": None,
+            "valid": None,
+        }
+
     def get_dataloaders(
+        self,
+        dataset_type: Literal["ram_dataset", "fragments_dataset"],
         batch_size: int = 32,
         num_workers: int = 4,
         persistent_workers: bool = True,
@@ -152,8 +159,23 @@ class Train:
         pin_memory: bool = True,
         drop_last: bool = False,
     ):
-        train_dataset = FragmentsDataset(dataset_type="train")
-        valid_dataset = FragmentsDataset(dataset_type="valid")
+        dataset_cls = {
+            "ram_dataset": RamDataset,
+            "fragments_dataset": FragmentsDataset,
+        }[dataset_type]
+
+        train_dataset = (
+            dataset_cls(dataset_type="train")
+            if self._dataset_cache["train"] is None
+            else self._dataset_cache["train"]
+        )
+        valid_dataset = (
+            dataset_cls(dataset_type="valid")
+            if self._dataset_cache["valid"] is None
+            else self._dataset_cache["valid"]
+        )
+        self._dataset_cache["train"] = train_dataset
+        self._dataset_cache["valid"] = valid_dataset
 
         train_loader = DataLoader(
             train_dataset,
@@ -164,7 +186,7 @@ class Train:
             prefetch_factor=prefetch_factor,
             pin_memory=pin_memory,
             drop_last=drop_last,
-            collate_fn=FragmentsDataset.collate_concat,
+            collate_fn=dataset_cls.collate_concat,
         )
 
         valid_loader = DataLoader(
@@ -287,7 +309,7 @@ class Train:
                 "batch_size": batch_size,
             }
 
-            train_dataloader, val_dataloader = Train.get_dataloaders(**dataloaders_cfg)
+            train_dataloader, val_dataloader = self.get_dataloaders(**dataloaders_cfg)
 
             log_to_wandb_as_config = self._get_log_to_wandb_as_config(
                 log_type="optuna",
@@ -345,7 +367,7 @@ class Train:
         log_to_wandb_as_config = self._get_log_to_wandb_as_config(
             log_type="single", architecture=model.get_instance_config()
         )
-        train_dataloader, val_dataloader = Train.get_dataloaders(
+        train_dataloader, val_dataloader = self.get_dataloaders(
             **self.single_training_config.dataloaders
         )
         best_model_path, _ = Train.one_model_with_wandb(
