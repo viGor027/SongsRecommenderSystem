@@ -17,4 +17,4 @@ connect:
 	ssh -i C:\Users\Wiktor\.ssh\vast_key -p $(PORT) root@$(IP) -L 8080:localhost:8080
 
 send_data:
-	scp -i C:\Users\Wiktor\.ssh\vast_key -P $(PORT) -r "D:\Programowanie\Python\SongsRecommenderSystem\data\03_model_ready.tar" root@$(IP):/app/data/
+	type "D:\Nauka\Projekty\SongsRecommenderSystem\data\03_model_ready.tar" | ssh -i C:\Users\Wiktor\.ssh\vast_key -p $(PORT) root@$(IP) "cat > /app/data/03_model_ready.tar"
