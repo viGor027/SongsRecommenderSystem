@@ -4,6 +4,9 @@ prepare_dirs:
 train:
 	uv run python workflow_actions/train/run.py
 
+train_detached:
+	tmux new-session -d -s train "uv run python workflow_actions/train/run.py"
+
 pack_data:
 	tar -cf data/03_model_ready.tar -C data 03_model_ready
 
