@@ -15,5 +15,7 @@ dependencies = [
     "pre-commit>=4.4.0",
     "torch>=2.8.0",
     "torchaudio>=2.8.0",
+    "torchvision>=0.23.0",
+    "transformers>=4.57.3",
     "wandb>=0.21.3",
 ]
