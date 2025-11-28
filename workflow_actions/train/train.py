@@ -399,6 +399,7 @@ class Train:
             monitor=early_stopping_cfg["monitor"],
             mode=early_stopping_cfg["mode"],
             save_top_k=1,
+            save_weights_only=True,
             filename=(
                 f"{checkpoint_name}"
                 + "-{epoch:02d}"

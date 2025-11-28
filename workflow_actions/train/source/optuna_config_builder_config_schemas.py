@@ -69,6 +69,19 @@ class DenseBounds:
 
 
 @dataclass(frozen=True)
+class VAEBounds:
+    n_seq_encoder_layers: list[int, int]
+    n_units_per_seq_encoder_layer: list[int, int]
+
+    def __post_init__(self):
+        _check_bounds(self.n_seq_encoder_layers, "n_seq_encoder_layers")
+        _check_bounds(
+            self.n_units_per_seq_encoder_layer,
+            "n_units_per_seq_encoder_layer",
+        )
+
+
+@dataclass(frozen=True)
 class Blocks:
     """
     Full list of blocks fo CnnDenseAssembly:

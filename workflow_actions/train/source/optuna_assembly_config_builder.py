@@ -4,6 +4,7 @@ from workflow_actions.train.source.optuna_config_builder_config_schemas import (
     CnnDenseBounds,
     CnnRnnDenseBounds,
     DenseBounds,
+    VAEBounds,
     Blocks,
 )
 
@@ -11,17 +12,18 @@ from workflow_actions.train.source.optuna_config_builder_config_schemas import (
 class OptunaAssemblyConfigBuilder:
     def __init__(
         self,
-        rnn_dense_bounds: dict | None,
-        cnn_dense_bounds: dict | None,
-        cnn_rnn_dense_bounds: dict | None,
-        dense_bounds: dict | None,
-        blocks: dict,
         assemblies: list[str],
         input_len: int,
         n_input_channels: int,
         n_embedding_dims: int,
         n_classes: int,
         optuna_step: int,
+        blocks: dict | None = None,
+        rnn_dense_bounds: dict | None = None,
+        cnn_dense_bounds: dict | None = None,
+        cnn_rnn_dense_bounds: dict | None = None,
+        dense_bounds: dict | None = None,
+        vae_bounds: dict | None = None,
         trial: optuna.Trial | None = None,
     ):
         """
@@ -51,7 +53,9 @@ class OptunaAssemblyConfigBuilder:
             DenseBounds(**dense_bounds) if dense_bounds is not None else None
         )
 
-        self.blocks = Blocks(**blocks)
+        self.vae_bounds = VAEBounds(**vae_bounds) if vae_bounds is not None else None
+
+        self.blocks = Blocks(**blocks) if blocks is not None else None
 
         self.input_len = input_len
         self.n_input_channels = n_input_channels
@@ -77,6 +81,7 @@ class OptunaAssemblyConfigBuilder:
             "CnnDenseAssembly": self._build_cnn_dense_cfg,
             "CnnRnnDenseAssembly": self._build_cnn_rnn_dense_cfg,
             "DenseAssembly": self._build_dense_cfg,
+            "VAEAssembly": self._build_vae_cfg,
         }
 
     def build_assembly_config(self) -> tuple[dict, str]:
@@ -86,7 +91,12 @@ class OptunaAssemblyConfigBuilder:
         assembly_type = self.trial.suggest_categorical(
             "assembly_type",
             self.available_assemblies,
-            # ["CnnDenseAssembly", "RnnDenseAssembly", "CnnRnnDenseAssembly", "DenseAssembly"],
+            # Possible content:
+            # [
+            # "CnnDenseAssembly", "RnnDenseAssembly",
+            # "CnnRnnDenseAssembly", "DenseAssembly",
+            # "VAEAssembly
+            # ],
         )
         return self.builders_map[assembly_type](
             assembly_name=assembly_type
@@ -277,6 +287,31 @@ class OptunaAssemblyConfigBuilder:
                 "feature_extractor_activation": self.trial.suggest_categorical(
                     f"{assembly_name}/feature_extractor_activation", self.ACTIVATIONS
                 ),
+            },
+            "classifier": self._get_classifier_config(),
+        }
+
+    def _build_vae_cfg(self, assembly_name: str):
+        n_seq_encoder_layers = self.trial.suggest_int(
+            f"{assembly_name}/n_seq_encoder_layers",
+            *self.vae_bounds.n_seq_encoder_layers,
+        )
+        return {
+            "class_name": "VAEAssembly",
+            "sequence_encoder": {
+                "n_seq_encoder_layers": n_seq_encoder_layers,
+                "n_units_per_seq_encoder_layer": [
+                    self.trial.suggest_int(
+                        f"{assembly_name}/n_units_per_seq_encoder_layer_{i}",
+                        *self.vae_bounds.n_units_per_seq_encoder_layer,
+                        step=self.optuna_step * 4,
+                    )
+                    for i in range(n_seq_encoder_layers - 1)
+                ],
+                "seq_encoder_activation": self.trial.suggest_categorical(
+                    f"{assembly_name}/seq_encoder_activation", self.ACTIVATIONS
+                ),
+                "n_embedding_dims": self.n_embedding_dims,
             },
             "classifier": self._get_classifier_config(),
         }

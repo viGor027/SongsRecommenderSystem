@@ -3,6 +3,8 @@ from architectures import (
     CnnDenseAssembly,
     RnnDenseAssembly,
     DenseAssembly,
+    VAEAssembly,
+    ResNetAssembly,
     Conv1DBlockWithDilationNoSkip,
     Conv1DBlockNoDilationNoSkip,
     Conv1DBlockWithDilationWithSkip,
@@ -27,6 +29,8 @@ class ModelInitializer:
             "RnnDenseAssembly": RnnDenseAssembly,
             "CnnRnnDenseAssembly": CnnRnnDenseAssembly,
             "DenseAssembly": DenseAssembly,
+            "VAEAssembly": VAEAssembly,
+            "ResNetAssembly": ResNetAssembly,
         }
 
         self.conv_cls_map = {
@@ -43,6 +47,8 @@ class ModelInitializer:
             "RnnDenseAssembly": self._rnn_dense_assembly_init,
             "CnnRnnDenseAssembly": self._cnn_assembly_init,
             "DenseAssembly": self._dense_assembly_init,
+            "VAEAssembly": self._vae_assembly_init,
+            "ResNetAssembly": self._resnet_assembly_init,
         }
 
     def get_pretrained_torch_model(self):
@@ -58,6 +64,40 @@ class ModelInitializer:
 
         return self.initializer_map[assembly_class_name](
             assembly_config, assembly_class_name
+        )
+
+    def _resnet_assembly_init(self, assembly_config: dict, assembly_class_name: str):
+        backbone_name = assembly_config.get("backbone_name", False)
+        weights = assembly_config.get("weights", False)
+        freeze_backbone = assembly_config.get("freeze_backbone", False)
+        sequence_encoder_cfg = assembly_config.get("sequence_encoder", {})
+        classifier_cfg = assembly_config.get("classifier", {})
+        if not backbone_name:
+            raise KeyError("assembly_config doesn't contain `backbone_name` key")
+        if not weights:
+            raise KeyError("assembly_config doesn't contain `weights` key")
+        if not freeze_backbone:
+            raise KeyError("assembly_config doesn't contain `freeze_backbone` key")
+        if not sequence_encoder_cfg:
+            raise KeyError("assembly_config doesn't contain `sequence_encoder` key")
+        if not classifier_cfg:
+            raise KeyError("assembly_config doesn't contain `classifier` key")
+        assembly = self.assembly_map[assembly_class_name](
+            backbone_name=backbone_name,
+            weights=weights,
+            freeze_backbone=freeze_backbone,
+        )
+        assembly.init_seq_encoder(**sequence_encoder_cfg)
+        assembly.init_classifier(**classifier_cfg)
+        return assembly
+
+    def _vae_assembly_init(
+        self, assembly_config: dict, assembly_class_name: str
+    ) -> "Assembly":
+        """Same init signature as RnnDenseAssembly"""
+        return self._rnn_dense_assembly_init(
+            assembly_config=assembly_config,
+            assembly_class_name=assembly_class_name,
         )
 
     def _rnn_dense_assembly_init(

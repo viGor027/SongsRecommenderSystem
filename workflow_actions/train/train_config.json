@@ -1,22 +1,12 @@
 {
   "run_single_training_config": {
     "architecture": {
-      "class_name": "CnnDenseAssembly",
-      "temporal_compressor":{
-        "ConvCls": "Conv2DBlockWithSkip",
-        "n_blocks": 5,
-        "n_input_channels": 1,
-        "n_layers_per_block": [1, 1, 1, 1, 1],
-        "n_filters_per_block": [64, 64, 64, 64, 64],
-        "n_filters_per_skip": [32, 32, 32, 32, 32],
-        "conv_activation": "hardswish",
-        "reduction_strat": "conv"
-      },
+      "class_name": "VAEAssembly",
       "sequence_encoder": {
-        "n_seq_encoder_layers": 3,
-        "n_units_per_seq_encoder_layer": [448, 448],
-        "seq_encoder_activation": "hardswish",
-        "n_embedding_dims": 384
+          "n_seq_encoder_layers": 4,
+          "n_units_per_seq_encoder_layer": [512, 512, 512],
+          "seq_encoder_activation": "relu",
+          "n_embedding_dims": 384
       },
       "classifier": {
         "n_classifier_layers": 1,
@@ -28,11 +18,11 @@
     }
     ,
     "dataloaders": {
-      "dataset_type": "ram_dataset",
-      "batch_size": 32,
-      "num_workers": 0,
-      "persistent_workers": false,
-      "prefetch_factor": null,
+      "dataset_type": "fragments_dataset",
+      "batch_size": 1,
+      "num_workers": 1,
+      "persistent_workers": true,
+      "prefetch_factor": 2,
       "pin_memory": true,
       "drop_last": false
     },
@@ -43,13 +33,13 @@
     "early_stopping": {
       "monitor": "val_loss",
       "mode": "min",
-      "patience": 4,
+      "patience": 5,
       "verbose": true
     },
     "accelerator": "auto",
     "precision": "bf16-true",
     "project": "WB_tests",
-    "run_name": "SPPED_TEST_REMOTE_bf16_true",
+    "run_name": "SPPED_TEST_STACJO_bf16_true",
     "do_pre_epoch_hook": false
   }
 }

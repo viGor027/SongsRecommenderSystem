@@ -7,4 +7,4 @@ if __name__ == "__main__":
     freeze_support()
     training_cfg = read_json_to_dict(TRAIN_CONFIG_PATH)
     train = Train(**training_cfg)
-    train.run_optuna_for_assemblies()
+    train.run_single_training()
