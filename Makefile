@@ -13,6 +13,9 @@ pack_data:
 unpack_data:
 	tar -xf /app/data/03_model_ready.tar -C /app/data
 
+delete_packed:
+	rm app/data/03_model_ready.tar
+
 init_venv:
 	source /app/.venv/bin/activate
 
