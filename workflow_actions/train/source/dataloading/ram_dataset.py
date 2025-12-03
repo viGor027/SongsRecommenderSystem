@@ -35,11 +35,11 @@ class RamDataset(Dataset):
         return self.X.size(dim=0)
 
     def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
+        return self.X[idx : idx + 1], self.y[idx : idx + 1]
 
     @staticmethod
     def collate_concat(batch):
         xs, ys = zip(*batch)
-        xs = torch.stack(xs, dim=0)
-        ys = torch.stack(ys, dim=0)
+        xs = torch.cat(xs, dim=0)
+        ys = torch.cat(ys, dim=0)
         return xs, ys

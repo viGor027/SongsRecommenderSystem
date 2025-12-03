@@ -323,3 +323,49 @@ class OptunaAssemblyConfigBuilder:
             "classifier_activation": None,
             "n_classes": self.n_classes,
         }
+
+    @staticmethod
+    def suggest_training_hparams(trial):
+        batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
+
+        optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "AdamW"])
+
+        if optimizer_name == "Adam":
+            lr = trial.suggest_float("adam_lr", 1e-5, 1e-3, log=True)
+            optimizer_params = {"lr": lr}
+        else:
+            lr = trial.suggest_float("adamw_lr", 1e-5, 1e-3, log=True)
+            weight_decay = trial.suggest_float(
+                "adamw_weight_decay", 1e-6, 1e-2, log=True
+            )
+            optimizer_params = {"lr": lr, "weight_decay": weight_decay}
+
+        schedule_choice = trial.suggest_categorical(
+            "lr_schedule", ["none", "warmup_cosine"]
+        )
+
+        if schedule_choice == "none":
+            lr_schedule = None
+            lr_schedule_params = None
+        else:
+            lr_schedule = "warmup_cosine"
+            start_factor = trial.suggest_float("warmup_start_factor", 0.01, 0.5)
+            warmup_iters = trial.suggest_int("warmup_iters", 1, 10)
+            T_max = trial.suggest_int("cosine_T_max", 10, 100)
+            eta_min = trial.suggest_float("cosine_eta_min", 1e-6, 1e-4, log=True)
+            lr_schedule_params = {
+                "start_factor": start_factor,
+                "warmup_iters": warmup_iters,
+                "T_max": T_max,
+                "eta_min": eta_min,
+            }
+
+        return {
+            "batch_size": batch_size,
+            "optimization": {
+                "optimizer": optimizer_name,
+                "optimizer_params": optimizer_params,
+                "lr_schedule": lr_schedule,
+                "lr_schedule_params": lr_schedule_params,
+            },
+        }

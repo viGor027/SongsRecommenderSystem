@@ -12,30 +12,28 @@ from workflow_actions.train.source import (
     RamDataset,
 )
 from workflow_actions.paths import TRAINED_MODELS_DIR
+from workflow_actions.json_handlers import write_dict_to_json
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
 from functools import partial
 from torch.utils.data import DataLoader
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Literal
 
 
-@dataclass(frozen=True)
+@dataclass
 class RunSingleTrainingConfig:
     architecture: dict = field(default_factory=lambda: {})
     dataloaders: dict = field(
         default_factory=lambda: {
+            "dataset_type": "ram_dataset",
             "batch_size": 32,
-            "num_workers": 4,
+            "num_workers": 0,
+            "persistent_workers": False,
+            "prefetch_factor": None,
             "pin_memory": True,
             "drop_last": False,
-        }
-    )
-    hparams: dict = field(
-        default_factory=lambda: {
-            "learning_rate": 1e-3,
-            "epochs": 100,
         }
     )
     early_stopping: dict = field(
@@ -46,33 +44,46 @@ class RunSingleTrainingConfig:
             "patience": 5,
         }
     )
-    accelerator: str = "auto"
-    precision: str = "32-true"
+    callbacks: dict = field(
+        default_factory=lambda: {
+            "add_model_checkpoint": True,
+            "add_early_stopping": True,  # always True
+        }
+    )
+    optimization: dict = field(
+        default_factory=lambda: {
+            "optimizer": "Adam",
+            "optimizer_params": {"lr": 1e-3},
+            "lr_schedule": None,
+            "lr_schedule_params": None,
+        }
+    )
+    trainer: dict = field(
+        default_factory=lambda: {
+            "max_epochs": 100,
+            "accelerator": "auto",
+            "precision": "32-true",
+            "log_every_n_steps": 50,
+            "enable_checkpointing": False,
+        }
+    )
+
     project: str = "default_project"
     run_name: str = "default_run"
     do_pre_epoch_hook: bool = False
 
 
-@dataclass(frozen=True)
+@dataclass
 class RunOptunaForAssembliesConfig:
-    """
-    If the batch_size key is present in the dataloaders dictionary,
-    its value is treated as fixed and is not included in the hyperparameter search.
-
-    If the learning_rate key is present in the hparams dictionary,
-    its value is treated as fixed and is not included in the hyperparameter search.
-    """
-
     dataloaders: dict = field(
         default_factory=lambda: {
-            "num_workers": 4,
+            "dataset_type": "ram_dataset",
+            "batch_size": 32,
+            "num_workers": 0,
+            "persistent_workers": False,
+            "prefetch_factor": None,
             "pin_memory": True,
             "drop_last": False,
-        }
-    )
-    hparams: dict = field(
-        default_factory=lambda: {
-            "epochs": 100,
         }
     )
     early_stopping: dict = field(
@@ -82,13 +93,39 @@ class RunOptunaForAssembliesConfig:
             "patience": 5,
         }
     )
-    accelerator: str = "auto"
-    precision: str = "32-true"
-    n_trials: int = 5_000
-    pruner: str = "median"
-    sampler: str = "tpe"
+    callbacks: dict = field(
+        default_factory=lambda: {
+            "add_model_checkpoint": False,
+            "add_early_stopping": True,  # always True
+            "add_pruning": True,
+        }
+    )
+    optimization: dict = field(
+        default_factory=lambda: {
+            "optimizer": "Adam",
+            "optimizer_params": {"lr": 1e-3},
+            "lr_schedule": None,
+            "lr_schedule_params": None,
+        }
+    )
+    trainer: dict = field(
+        default_factory=lambda: {
+            "max_epochs": 100,
+            "accelerator": "auto",
+            "precision": "32-true",
+            "log_every_n_steps": 50,
+            "enable_checkpointing": False,
+        }
+    )
+    optuna: dict = field(
+        default_factory=lambda: {
+            "n_trials": 5_000,
+            "pruner": "median",
+            "sampler": "tpe",
+            "study_name": "default_study",
+        }
+    )
     project: str = "default_project"
-    study_name: str = "default_study"
 
 
 class Train:
@@ -122,9 +159,9 @@ class Train:
         self.model_initializer = ModelInitializer()
 
         n_startup_trials = (
-            int(self.optuna_config.n_trials * 0.15)
+            int(self.optuna_config.optuna["n_trials"] * 0.15)
             if self.optuna_config is not None
-            else 1
+            else 15
         )
         self.PRUNERS_MAP = {
             "median": partial(
@@ -198,7 +235,7 @@ class Train:
             prefetch_factor=prefetch_factor,
             pin_memory=pin_memory,
             drop_last=False,
-            collate_fn=FragmentsDataset.collate_concat,
+            collate_fn=dataset_cls.collate_concat,
         )
         return train_loader, valid_loader
 
@@ -206,14 +243,13 @@ class Train:
     def one_model_with_wandb(
         model,
         log_to_wandb_as_config: dict,
-        hparams: dict,
+        optimization: dict,
+        trainer: dict,
         train_dataloader,
         val_dataloader,
         callbacks: dict,
         project: str,
         run_name: str,
-        accelerator: str = "auto",
-        precision: str = "32-true",
         do_pre_epoch_hook: bool = False,
     ) -> tuple[str | None, float]:
         """
@@ -229,26 +265,28 @@ class Train:
         )
         module = TrainerModule(
             model,
-            learning_rate=hparams["learning_rate"],
+            optimization=optimization,
             do_pre_epoch_hook=do_pre_epoch_hook,
         )
-
-        enable_ckpt = "model_checkpoint" in callbacks
         trainer = L.Trainer(
-            max_epochs=hparams["epochs"],
             logger=wandb_logger,
             callbacks=list(callbacks.values()),
             deterministic=True,
-            accelerator=accelerator,
-            precision=precision,
-            log_every_n_steps=50,
-            enable_checkpointing=enable_ckpt,
+            **trainer,
         )
 
         try:
             trainer.fit(module, train_dataloader, val_dataloader)
-            best_val = callbacks["early_stopping"].best_score
-            best_val = float(best_val.item()) if best_val is not None else float("inf")
+
+            mc = callbacks.get("model_checkpoint")
+
+            best_val = (
+                mc.best_model_score.item()
+                if mc is not None
+                else callbacks["early_stopping"].best_score.item()
+            )
+            best_model_path = mc.best_model_path if mc is not None else None
+
             wandb_logger.experiment.summary["best_val_loss"] = best_val
         except optuna.TrialPruned as e:
             wandb_logger.experiment.summary.update(
@@ -262,12 +300,6 @@ class Train:
             raise
         finally:
             wandb.finish()
-
-        best_model_path = (
-            callbacks["model_checkpoint"].best_model_path
-            if callbacks.get("model_checkpoint", False)
-            else None
-        )
         return best_model_path, best_val
 
     def run_optuna_for_assemblies(self):
@@ -291,52 +323,34 @@ class Train:
             )
             model = self.model_initializer.get_model_assembly(assembly_cfg)
 
-            learning_rate = (
-                self.optuna_config.hparams["learning_rate"]
-                if self.optuna_config.hparams.get("learning_rate", False)
-                else trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
+            train_dataloader, val_dataloader = self.get_dataloaders(
+                **self.optuna_config.dataloaders
             )
-            batch_size = (
-                self.optuna_config.dataloaders["batch_size"]
-                if self.optuna_config.dataloaders.get("batch_size", False)
-                else trial.suggest_categorical(
-                    "batch_size", [i for i in range(32, 256 + 1, 32)]
-                )
-            )
-            hparams = {**self.optuna_config.hparams, "learning_rate": learning_rate}
-            dataloaders_cfg = {
-                **self.optuna_config.dataloaders,
-                "batch_size": batch_size,
+
+            log_to_wandb_as_config = {
+                "architecture": assembly_cfg,
+                "batch_size": self.optuna_config.dataloaders["batch_size"],
+                "lr": self.optuna_config.optimization["optimizer_params"]["lr"],
             }
 
-            train_dataloader, val_dataloader = self.get_dataloaders(**dataloaders_cfg)
-
-            log_to_wandb_as_config = self._get_log_to_wandb_as_config(
-                log_type="optuna",
-                architecture=assembly_cfg,
-                batch_size=batch_size,
-                learning_rate=learning_rate,
-            )
-
-            run_name = (
-                f"{self.optuna_config.study_name}_{assembly_type}_trial_{trial.number}"
+            run_name = f"{self.optuna_config.optuna['study_name']}_{assembly_type}_trial_{trial.number}"
+            callbacks = self._get_callbacks(
+                callbacks_config_from="optuna_cfg",
+                **self.optuna_config.callbacks,
+                checkpoint_name_prefix=self.optuna_config.optuna["study_name"],
+                trial=trial,
             )
 
             ckpt_path, best_val = Train.one_model_with_wandb(
                 model=model,
                 log_to_wandb_as_config=log_to_wandb_as_config,
-                hparams=hparams,
+                optimization=self.optuna_config.optimization,
+                trainer=self.optuna_config.trainer,
                 train_dataloader=train_dataloader,
                 val_dataloader=val_dataloader,
+                callbacks=callbacks,
                 project=self.optuna_config.project,
                 run_name=run_name,
-                accelerator=self.optuna_config.accelerator,
-                precision=self.optuna_config.precision,
-                callbacks=Train._get_callbacks(
-                    early_stopping_cfg=self.optuna_config.early_stopping,
-                    checkpoint_name=run_name,
-                    trial=trial,
-                ),
                 do_pre_epoch_hook=False,
             )
 
@@ -346,17 +360,99 @@ class Train:
             return best_val
 
         study = optuna.create_study(
-            study_name=self.optuna_config.study_name,
+            study_name=self.optuna_config.optuna["study_name"],
             direction="minimize",
-            sampler=self.SAMPLERS_MAP[self.optuna_config.sampler](),
-            pruner=self.PRUNERS_MAP[self.optuna_config.pruner](),
+            sampler=self.SAMPLERS_MAP[self.optuna_config.optuna["sampler"]](),
+            pruner=self.PRUNERS_MAP[self.optuna_config.optuna["pruner"]](),
         )
-        study.optimize(objective, n_trials=self.optuna_config.n_trials)
+        study.optimize(objective, n_trials=self.optuna_config.optuna["n_trials"])
 
         best_cfg = study.best_trial.params
         return study, best_cfg, best_model_path
 
-    def run_single_training(self) -> str:
+    def run_optuna_hparams_search_for_single_architecture(self):
+        """Uses RunSingleTrainingConfig"""
+        if self.single_training_config is None:
+            raise ValueError(
+                "Running search for single architecture requires initializing Train "
+                "object with same config as for run_single_training_config. "
+                "Optimizer params, lr schedule and batch size will be overwritten by optuna."
+            )
+        best_model_path = None
+        best_score = float("inf")
+
+        def objective(trial: optuna.Trial) -> float:
+            nonlocal best_model_path, best_score
+
+            model = self.model_initializer.get_model_assembly(
+                assembly_config=self.single_training_config.architecture
+            )
+
+            suggested_training_hparams = (
+                OptunaAssemblyConfigBuilder.suggest_training_hparams(trial=trial)
+            )
+
+            batch_size = suggested_training_hparams["batch_size"]
+            self.single_training_config.dataloaders["batch_size"] = batch_size
+
+            train_dataloader, val_dataloader = self.get_dataloaders(
+                **self.single_training_config.dataloaders
+            )
+
+            log_to_wandb_as_config = {
+                "architecture": self.single_training_config.architecture,
+                "suggested_training_hparams": suggested_training_hparams,
+                "dataloaders": self.single_training_config.dataloaders,
+                "early_stopping": self.single_training_config.early_stopping,
+                "trainer": self.single_training_config.trainer,
+            }
+
+            run_name = f"OptunaHparamSearch_{self.single_training_config.run_name}_trial_{trial.number}"
+            callbacks = self._get_callbacks(
+                callbacks_config_from="single_cfg",
+                **self.single_training_config.callbacks,
+                checkpoint_name_prefix=self.single_training_config.run_name,
+                add_pruning=True,
+                trial=trial,
+            )
+            ckpt_path, best_val = Train.one_model_with_wandb(
+                model=model,
+                log_to_wandb_as_config=log_to_wandb_as_config,
+                optimization=suggested_training_hparams["optimization"],
+                trainer=self.single_training_config.trainer,
+                train_dataloader=train_dataloader,
+                val_dataloader=val_dataloader,
+                callbacks=callbacks,
+                project=self.single_training_config.project,
+                run_name=run_name,
+                do_pre_epoch_hook=self.single_training_config.do_pre_epoch_hook,
+            )
+
+            if best_model_path is None or best_val < best_score:
+                best_score = best_val
+                best_model_path = ckpt_path
+            return best_val
+
+        study = optuna.create_study(
+            study_name=f"OptunaHparamSearch_{self.single_training_config.run_name}",
+            direction="minimize",
+            sampler=self.SAMPLERS_MAP["tpe"](),
+            pruner=self.PRUNERS_MAP["median"](),
+        )
+        study.optimize(objective, n_trials=100)
+
+        best_cfg = study.best_trial.params
+        write_dict_to_json(
+            data={
+                "best_model_path": best_model_path,
+                "best_cfg": best_cfg,
+            },
+            file_path=TRAINED_MODELS_DIR
+            / f"OptunaHparamSearch_{self.single_training_config.run_name}_summary.json",
+        )
+        return study, best_cfg, best_model_path
+
+    def run_single_training(self) -> tuple[None | str, float]:
         if self.single_training_config is None:
             raise ValueError(
                 "Running single training requires initializing Train object with run_single_training_config."
@@ -364,111 +460,77 @@ class Train:
         model = self.model_initializer.get_model_assembly(
             assembly_config=self.single_training_config.architecture
         )
-        log_to_wandb_as_config = self._get_log_to_wandb_as_config(
-            log_type="single", architecture=model.get_instance_config()
-        )
+        log_to_wandb_as_config = asdict(self.single_training_config)
+
         train_dataloader, val_dataloader = self.get_dataloaders(
             **self.single_training_config.dataloaders
         )
-        best_model_path, _ = Train.one_model_with_wandb(
+        callbacks = self._get_callbacks(
+            callbacks_config_from="single_cfg",
+            **self.single_training_config.callbacks,
+            checkpoint_name_prefix=self.single_training_config.run_name,
+            add_pruning=False,
+            trial=None,
+        )
+        ckpt_path, best_val = Train.one_model_with_wandb(
             model=model,
-            hparams=self.single_training_config.hparams,
             log_to_wandb_as_config=log_to_wandb_as_config,
+            optimization=self.single_training_config.optimization,
+            trainer=self.single_training_config.trainer,
             train_dataloader=train_dataloader,
             val_dataloader=val_dataloader,
-            callbacks=Train._get_callbacks(
-                early_stopping_cfg=self.single_training_config.early_stopping,
-                checkpoint_name=self.single_training_config.run_name,
-                trial=None,
-            ),
+            callbacks=callbacks,
             project=self.single_training_config.project,
             run_name=self.single_training_config.run_name,
-            accelerator=self.single_training_config.accelerator,
-            precision=self.single_training_config.precision,
             do_pre_epoch_hook=self.single_training_config.do_pre_epoch_hook,
         )
-        return best_model_path
+        return ckpt_path, best_val
 
-    @staticmethod
     def _get_callbacks(
-        early_stopping_cfg: dict, checkpoint_name: str, trial: optuna.Trial | None
+        self,
+        callbacks_config_from: Literal["optuna_cfg", "single_cfg"],
+        checkpoint_name_prefix: str,
+        add_model_checkpoint: bool,
+        add_early_stopping: bool,
+        add_pruning: bool = False,
+        trial: optuna.Trial | None = None,
     ) -> dict:
-        es = EarlyStopping(**early_stopping_cfg)
+        config_obj = {
+            "optuna_cfg": self.optuna_config,
+            "single_cfg": self.single_training_config,
+        }[callbacks_config_from]
+        monitor_value = config_obj.early_stopping["monitor"]
+
+        es = EarlyStopping(**config_obj.early_stopping)
         ckpt = ModelCheckpoint(
             dirpath=TRAINED_MODELS_DIR,
-            monitor=early_stopping_cfg["monitor"],
-            mode=early_stopping_cfg["mode"],
+            monitor=monitor_value,
+            mode=config_obj.early_stopping["mode"],
             save_top_k=1,
             save_weights_only=True,
             filename=(
-                f"{checkpoint_name}"
+                f"{checkpoint_name_prefix}"
                 + "-{epoch:02d}"
                 + "-{"
-                + early_stopping_cfg["monitor"]
+                + monitor_value
                 + ":.4f}"
             ),
         )
-        callbacks = {"early_stopping": es}
-        callbacks = (
-            callbacks | {"model_checkpoint": ckpt} if trial is None else callbacks
-        )
         pruning = (
-            PyTorchLightningPruningCallback(trial, early_stopping_cfg["monitor"])
+            PyTorchLightningPruningCallback(trial, monitor_value)
             if trial is not None
             else None
         )
+
+        callbacks = {"early_stopping": es} if add_early_stopping else {}
         callbacks = (
-            callbacks | {"optuna_pruning": pruning}
-            if pruning is not None
+            callbacks | {"model_checkpoint": ckpt}
+            if add_model_checkpoint
             else callbacks
         )
-
+        callbacks = (
+            callbacks | {"optuna_pruning": pruning}
+            if (trial is not None and add_pruning)
+            else callbacks
+        )
         return callbacks
-
-    def _get_log_to_wandb_as_config(
-        self,
-        log_type: Literal["optuna", "single"],
-        architecture: dict,
-        batch_size: int | None = None,
-        learning_rate: float | None = None,
-    ):
-        config_mapper = {
-            "optuna": self.optuna_config,
-            "single": self.single_training_config,
-        }
-        config_obj = config_mapper[log_type]
-
-        log_to_wandb_as_config = {
-            "hparams": config_obj.hparams
-            | self._get_additional_hparams_to_log(
-                log_type=log_type, batch_size=batch_size, learning_rate=learning_rate
-            ),
-            "architecture": architecture,
-            "early_stopping": config_obj.early_stopping,
-        }
-        return log_to_wandb_as_config
-
-    def _get_additional_hparams_to_log(
-        self,
-        log_type: Literal["optuna", "single"],
-        batch_size: int | None = None,
-        learning_rate: float | None = None,
-    ):
-        configs_map = {
-            "optuna": {
-                "learning_rate": learning_rate,
-                "batch_size": batch_size,
-                "pruner": self.optuna_config.pruner,
-                "sampler": self.optuna_config.sampler,
-                "study_name": self.optuna_config.study_name,
-            }
-            if self.optuna_config is not None
-            else {},
-            "single": {
-                "batch_size": self.single_training_config.dataloaders["batch_size"],
-                "run_name": self.single_training_config.run_name,
-            }
-            if self.single_training_config is not None
-            else {},
-        }
-        return configs_map[log_type]
