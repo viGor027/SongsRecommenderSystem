@@ -22,6 +22,7 @@ class ResNetAssembly(nn.Module, Assembly):
 
         self.backbone_name = backbone_name
         self.weights = weights
+        self.freeze_backbone = freeze_backbone
 
         if backbone_name == "resnet18":
             backbone = models.resnet18(weights=self.weights)
@@ -112,6 +113,7 @@ class ResNetAssembly(nn.Module, Assembly):
             "class_name": self.__class__.__name__,
             "backbone_name": self.backbone_name,
             "weights": self.weights,
+            "freeze_backbone": self.freeze_backbone,
             "sequence_encoder": {
                 "n_seq_encoder_layers": self.n_seq_encoder_layers,
                 "n_units_per_seq_encoder_layer": self.n_units_per_seq_encoder_layer,
