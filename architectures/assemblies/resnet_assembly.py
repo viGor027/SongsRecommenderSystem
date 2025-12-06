@@ -10,15 +10,28 @@ from typing import Literal
 class ResNetAssembly(nn.Module, Assembly):
     def __init__(
         self,
-        backbone_name: Literal["resnet18", "resnet34"] = "resnet18",
-        weights: Literal["DEFAULT", "IMAGENET1K_V1", None] = None,
+        backbone_name: Literal[
+            "resnet18", "resnet34", "resnet50", "resnet101"
+        ] = "resnet18",
+        weights: Literal["DEFAULT", "IMAGENET1K_V1", "IMAGENET1K_V2", None] = None,
         freeze_backbone: bool = True,
     ):
         nn.Module.__init__(self)
         Assembly.__init__(self)
 
-        if backbone_name not in ["resnet18", "resnet34"]:
-            raise ValueError("backbone_name must be 'resnet18' or 'resnet34'.")
+        if backbone_name not in ["resnet18", "resnet34", "resnet50", "resnet101"]:
+            raise ValueError(
+                "backbone_name must be 'resnet18', 'resnet34', 'resnet50' or 'resnet101'."
+            )
+
+        # specjalny wyjątek dla IMAGENET1K_V2
+        if weights == "IMAGENET1K_V2" and backbone_name not in [
+            "resnet50",
+            "resnet101",
+        ]:
+            raise ValueError(
+                "Weights 'IMAGENET1K_V2' are only supported for backbone 'resnet50' and 'resnet101'."
+            )
 
         self.backbone_name = backbone_name
         self.weights = weights
@@ -27,9 +40,15 @@ class ResNetAssembly(nn.Module, Assembly):
         if backbone_name == "resnet18":
             backbone = models.resnet18(weights=self.weights)
             feature_dim = 512
-        else:
+        elif backbone_name == "resnet34":
             backbone = models.resnet34(weights=self.weights)
             feature_dim = 512
+        elif backbone_name == "resnet50":
+            backbone = models.resnet50(weights=self.weights)
+            feature_dim = 2048
+        else:  # "resnet101"
+            backbone = models.resnet101(weights=self.weights)
+            feature_dim = 2048
 
         self.feature_dim = feature_dim
         self.feature_extractor = nn.Sequential(*list(backbone.children())[:-1])
