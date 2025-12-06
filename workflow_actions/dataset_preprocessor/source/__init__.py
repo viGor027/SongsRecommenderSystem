@@ -8,7 +8,6 @@ from .serializer import (
     load_numpy_fragment,
 )
 from .sample_packer import SamplePacker
-from .offline_normalizer import OfflineNormalizer
 from .chunker import Chunker
 
 __all__ = [
@@ -16,7 +15,6 @@ __all__ = [
     "SpectrogramExtractor",
     "SpectrogramAugment",
     "LabelEncoder",
-    "OfflineNormalizer",
     "SamplePacker",
     "load_single_song_to_numpy",
     "save_numpy_fragment",

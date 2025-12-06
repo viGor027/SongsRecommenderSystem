@@ -16,7 +16,6 @@ from workflow_actions.dataset_preprocessor.source import (
     SpectrogramAugment,
     load_single_song_to_numpy,
     LabelEncoder,
-    OfflineNormalizer,
     SamplePacker,
 )
 from workflow_actions.json_handlers import write_dict_to_json, read_json_to_dict
@@ -80,7 +79,6 @@ class DatasetPreprocessor:
         spectrogram_extractor: dict,
         spectrogram_augment: dict,
         sample_packer: dict,
-        offline_normalizer: dict,
         pipeline_settings: dict,
     ):
         self.chunker_cfg = chunker
@@ -98,9 +96,6 @@ class DatasetPreprocessor:
         self.spectrogram_augment = SpectrogramAugment(**spectrogram_augment)
 
         self.sample_packer = SamplePacker(**sample_packer)
-
-        self.offline_normalizer_cfg = offline_normalizer
-        self.offline_normalizer = OfflineNormalizer(**offline_normalizer)
 
         self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = None
         self._global_train_index: dict[str, list[int, int]] | None = None
@@ -125,13 +120,6 @@ class DatasetPreprocessor:
             raise ValueError(
                 (
                     "Chunker sample rate must match SpectrogramExtractor sample rate. ",
-                    "Check dataset_preprocessor_config.json values.",
-                )
-            )
-        if self.offline_normalizer.n_mels != self.spectrogram_extractor.n_mels:
-            raise ValueError(
-                (
-                    "OfflineNormalizer n_mels must match SpectrogramExtractor n_mels. ",
                     "Check dataset_preprocessor_config.json values.",
                 )
             )
