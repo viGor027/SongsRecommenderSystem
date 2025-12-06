@@ -69,14 +69,14 @@ class ModelInitializer:
     def _resnet_assembly_init(self, assembly_config: dict, assembly_class_name: str):
         backbone_name = assembly_config.get("backbone_name", False)
         weights = assembly_config.get("weights", False)
-        freeze_backbone = assembly_config.get("freeze_backbone", False)
+        freeze_backbone = assembly_config.get("freeze_backbone", None)
         sequence_encoder_cfg = assembly_config.get("sequence_encoder", {})
         classifier_cfg = assembly_config.get("classifier", {})
         if not backbone_name:
             raise KeyError("assembly_config doesn't contain `backbone_name` key")
-        if not weights:
+        if weights is False:
             raise KeyError("assembly_config doesn't contain `weights` key")
-        if not freeze_backbone:
+        if freeze_backbone is None:
             raise KeyError("assembly_config doesn't contain `freeze_backbone` key")
         if not sequence_encoder_cfg:
             raise KeyError("assembly_config doesn't contain `sequence_encoder` key")

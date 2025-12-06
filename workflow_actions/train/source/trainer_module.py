@@ -91,7 +91,7 @@ class TrainerModule(L.LightningModule):
                 schedulers=[warmup, cosine],
                 milestones=[warmup_iters],
             )
-            return optimizer, scheduler
+            return [optimizer], [scheduler]
 
         return optimizer
 
