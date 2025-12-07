@@ -8,7 +8,7 @@ from workflow_actions.train.source import (
     TrainerModule,
     ModelInitializer,
     OptunaAssemblyConfigBuilder,
-    FragmentsDataset,
+    AugmentedDataset,
     RamDataset,
 )
 from workflow_actions.paths import TRAINED_MODELS_DIR
@@ -188,7 +188,7 @@ class Train:
 
     def get_dataloaders(
         self,
-        dataset_type: Literal["ram_dataset", "fragments_dataset"],
+        dataset_type: Literal["ram_dataset", "augmented_dataset"],
         batch_size: int = 32,
         num_workers: int = 4,
         persistent_workers: bool = True,
@@ -198,7 +198,7 @@ class Train:
     ):
         dataset_cls = {
             "ram_dataset": RamDataset,
-            "fragments_dataset": FragmentsDataset,
+            "augmented_dataset": AugmentedDataset,
         }[dataset_type]
 
         train_dataset = (
