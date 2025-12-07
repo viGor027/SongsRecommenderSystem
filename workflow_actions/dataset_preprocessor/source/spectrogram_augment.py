@@ -41,3 +41,40 @@ class SpectrogramAugment:
         for t in self.transforms:
             batch = t(batch)
         return [b for b in batch]
+
+
+if __name__ == "__main__":
+    from workflow_actions.paths import MODEL_READY_DATA_DIR
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    path = MODEL_READY_DATA_DIR / "X_0.pt"
+    X = torch.load(path)  # [1, 80, 216]
+
+    augmentations = [
+        {"name": "TimeMasking", "params": {"time_mask_param": 30, "p": 0.35}},
+        {"name": "FrequencyMasking", "params": {"freq_mask_param": 15}},
+    ]
+
+    augmenter = SpectrogramAugment(augmentations)
+    X_aug_list = augmenter([X])
+    X_aug = X_aug_list[0]
+
+    spec_orig = X[0].detach().cpu()
+    spec_aug = X_aug[0].detach().cpu()
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+
+    im0 = axs[0].imshow(spec_orig, origin="lower", aspect="auto")
+    axs[0].set_title("Original")
+    fig.colorbar(im0, ax=axs[0])
+
+    im1 = axs[1].imshow(spec_aug, origin="lower", aspect="auto")
+    axs[1].set_title("Augmented")
+    fig.colorbar(im1, ax=axs[1])
+
+    plt.tight_layout()
+    out_path = "../raw_augmentations_overview/X_0_spectrogram_augment_2.png"
+    fig.savefig(out_path)

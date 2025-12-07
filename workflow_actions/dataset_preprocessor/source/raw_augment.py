@@ -1,9 +1,7 @@
 import numpy as np
 from audiomentations import (
     AddGaussianNoise,
-    TimeStretch,
     PitchShift,
-    Shift,
     Mp3Compression,
 )
 
@@ -19,10 +17,8 @@ class RawAugment:
     """
 
     _AUG_MAP = {
-        "AddGaussianNoise": AddGaussianNoise,
-        "TimeStretch": TimeStretch,
         "PitchShift": PitchShift,
-        "Shift": Shift,
+        "AddGaussianNoise": AddGaussianNoise,
         "Mp3Compression": Mp3Compression,
     }
 
@@ -54,3 +50,49 @@ class RawAugment:
                     frag = t(samples=frag, sample_rate=sample_rate)
             out.append(frag)
         return out
+
+
+if __name__ == "__main__":
+    from workflow_actions.paths import DOWNLOAD_DIR
+    import soundfile as sf
+    import librosa
+
+    song_path = DOWNLOAD_DIR / "3rd_Prototype,Emdi-House.mp3"
+
+    sr = 22050
+    song, sample_rate = librosa.load(
+        song_path,
+        sr=sr,
+    )
+
+    aug_cfg = [
+        {
+            "name": "PitchShift",
+            "params": {"min_semitones": -4, "max_semitones": 4, "p": 1.0},
+        },
+        {
+            "name": "AddGaussianNoise",
+            "params": {"min_amplitude": 0.003, "max_amplitude": 0.02, "p": 1.0},
+        },
+        {
+            "name": "Mp3Compression",
+            "params": {"min_bitrate": 8, "max_bitrate": 64, "p": 1.0},
+        },
+    ]
+
+    augmenter = RawAugment(aug_cfg)
+    base_name = song_path.stem
+    for cfg, transform in zip(aug_cfg, augmenter.transforms):
+        name = cfg["name"]
+        print(f"Applying augmentation: {name}")
+
+        frag = song.copy()
+        if np.random.rand() <= getattr(transform, "p", 1.0):
+            augmented = transform(samples=frag, sample_rate=sr)
+        else:
+            augmented = frag
+
+        out_path = f"{base_name}_{name}.wav"
+        sf.write(out_path, augmented, sr)
+
+        print(f"Saved: {out_path}")

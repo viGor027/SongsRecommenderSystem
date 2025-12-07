@@ -1,62 +1,67 @@
 {
-  "raw_augment": {
-    "augmentations": [
-      {
-        "name": "AddGaussianNoise",
-        "params": {
-          "min_amplitude": 0.001,
-          "max_amplitude": 0.015,
-          "p": 0.1
+  "fragment_pipeline": {
+    "apply_augmentations_on_raw": true,
+    "extract_spectrograms": true,
+    "apply_augmentations_on_spectrograms": true,
+    "raw_augment": {
+      "augmentations": [
+        {
+          "name": "AddGaussianNoise",
+          "params": {
+            "min_amplitude": 0.003,
+            "max_amplitude": 0.02,
+            "p": 1.0
+          }
+        },
+        {
+          "name": "PitchShift",
+          "params": {
+            "min_semitones": -4,
+            "max_semitones": 4,
+            "p": 1.0
+          }
+        },
+        {
+          "name": "Mp3Compression",
+          "params": {
+            "min_bitrate": 8,
+            "max_bitrate": 64,
+            "p": 1.0
+          }
         }
-      },
-      {
-        "name": "Mp3Compression",
-        "params": {
-          "min_bitrate": 16,
-          "max_bitrate": 96,
-          "backend": "fast-mp3-augment",
-          "preserve_delay": false,
-          "p": 0.9
-        }
-      }
-    ]
-  },
-  "spectrogram_augment": {
+      ]
+    },
+    "spectrogram_extractor": {
+      "extraction_method":"mel",
+      "sample_rate": 22050,
+      "n_mels": 128
+    },
+    "spectrogram_augment": {
       "augmentations": [
         {
           "name": "TimeMasking",
           "params": {
-            "time_mask_param": 80,
-            "iid_masks": false,
-            "p": 0.35
+            "time_mask_param": 32,
+            "iid_masks": false
           }
         },
         {
           "name": "FrequencyMasking",
           "params": {
-            "freq_mask_param": 30,
+            "freq_mask_param": 20,
             "iid_masks": false
           }
         }
       ]
-    },
+    }
+  },
   "chunker": {
     "sample_rate": 22050,
     "validation_probability": 0.08,
     "n_seconds": 5,
     "step": 1
   },
-  "spectrogram_extractor": {
-    "extraction_method":"mel",
-    "sample_rate": 22050,
-    "n_mels": 80
-  },
   "sample_packer": {
     "group_size": 64
-  },
-  "pipeline_settings": {
-    "apply_augmentations_on_raw": false,
-    "extract_spectrograms": true,
-    "apply_augmentations_on_spectrograms": false
   }
 }
