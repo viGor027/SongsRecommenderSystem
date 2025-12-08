@@ -24,7 +24,6 @@ class ResNetAssembly(nn.Module, Assembly):
                 "backbone_name must be 'resnet18', 'resnet34', 'resnet50' or 'resnet101'."
             )
 
-        # specjalny wyjątek dla IMAGENET1K_V2
         if weights == "IMAGENET1K_V2" and backbone_name not in [
             "resnet50",
             "resnet101",
