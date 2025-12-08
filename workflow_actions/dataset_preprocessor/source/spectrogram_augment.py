@@ -40,7 +40,7 @@ class SpectrogramAugment:
         batch = torch.stack(spectrograms, dim=0)  # [batch, 1, n_mels, len]
         for t in self.transforms:
             batch = t(batch)
-        return [b for b in batch]
+        return [b.clone() for b in batch]
 
 
 if __name__ == "__main__":
