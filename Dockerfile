@@ -17,8 +17,9 @@ COPY pyproject.toml .
 COPY uv.lock .
 
 RUN pip install --no-cache-dir uv && \
-    uv sync --frozen && \
-    echo "export PYTHONPATH=/app" >> /root/.bashrc
+    uv sync --frozen
+
+ENV PYTHONPATH=/app
 
 COPY Makefile .
 COPY architectures/ architectures/
