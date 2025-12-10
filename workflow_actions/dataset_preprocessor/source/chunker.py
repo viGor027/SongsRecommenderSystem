@@ -55,16 +55,22 @@ class Chunker:
 
     @staticmethod
     def make_song_slices(
-        song: NDArray[np.float32], fragmented_song_index: FragmentedSongIndex
+        song: NDArray[np.float32],
+        fragmented_song_index: FragmentedSongIndex,
+        get_valid_slices: bool,
     ) -> FragmentedSongSlices:
         train_slices = [
             Chunker._get_slice(song=song, left=left, right=right)
             for (left, right) in fragmented_song_index["train"]
         ]
-        valid_slices = [
-            Chunker._get_slice(song=song, left=left, right=right)
-            for (left, right) in fragmented_song_index["valid"]
-        ]
+        valid_slices = (
+            [
+                Chunker._get_slice(song=song, left=left, right=right)
+                for (left, right) in fragmented_song_index["valid"]
+            ]
+            if get_valid_slices
+            else []
+        )
         return FragmentedSongSlices(
             train=train_slices,
             valid=valid_slices,

@@ -27,8 +27,10 @@ class Serializer:
         self,
         samples: dict[str, list[torch.Tensor]],
         song_title,
+        serialize_valid: bool,
     ):
-        for set_type in ["train", "valid"]:
+        sets = ["train", "valid"] if serialize_valid else ["train"]
+        for set_type in sets:
             set_path, index = self._path_and_index_for_set_type[set_type]
             index_range = index[song_title]
 
@@ -60,6 +62,23 @@ class Serializer:
                         encoded_song_tags,
                         set_path / f"y_{absolute_idx}.pt",
                     )
+
+    def create_single_song_ys(self, song_title):
+        for (
+            set_path,
+            index,
+        ) in self._path_and_index_for_set_type.values():
+            encoded_song_tags = (
+                self.label_encoder.encode_song_labels_to_multi_hot_vector(
+                    song_title=song_title,
+                )
+            )
+            sample_range = index[song_title]
+            for absolute_idx in range(sample_range[0], sample_range[1] + 1):
+                torch.save(
+                    encoded_song_tags,
+                    set_path / f"y_{absolute_idx}.pt",
+                )
 
     @staticmethod
     def save_numpy_fragment(fragment: np.ndarray, path: Path):

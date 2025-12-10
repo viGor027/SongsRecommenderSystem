@@ -3,7 +3,6 @@ from architectures import (
     CnnDenseAssembly,
     RnnDenseAssembly,
     DenseAssembly,
-    VAEAssembly,
     ResNetAssembly,
     Conv1DBlockWithDilationNoSkip,
     Conv1DBlockNoDilationNoSkip,
@@ -29,7 +28,6 @@ class ModelInitializer:
             "RnnDenseAssembly": RnnDenseAssembly,
             "CnnRnnDenseAssembly": CnnRnnDenseAssembly,
             "DenseAssembly": DenseAssembly,
-            "VAEAssembly": VAEAssembly,
             "ResNetAssembly": ResNetAssembly,
         }
 
@@ -47,7 +45,6 @@ class ModelInitializer:
             "RnnDenseAssembly": self._rnn_dense_assembly_init,
             "CnnRnnDenseAssembly": self._cnn_assembly_init,
             "DenseAssembly": self._dense_assembly_init,
-            "VAEAssembly": self._vae_assembly_init,
             "ResNetAssembly": self._resnet_assembly_init,
         }
 
@@ -90,15 +87,6 @@ class ModelInitializer:
         assembly.init_seq_encoder(**sequence_encoder_cfg)
         assembly.init_classifier(**classifier_cfg)
         return assembly
-
-    def _vae_assembly_init(
-        self, assembly_config: dict, assembly_class_name: str
-    ) -> "Assembly":
-        """Same init signature as RnnDenseAssembly"""
-        return self._rnn_dense_assembly_init(
-            assembly_config=assembly_config,
-            assembly_class_name=assembly_class_name,
-        )
 
     def _rnn_dense_assembly_init(
         self, assembly_config: dict, assembly_class_name: str

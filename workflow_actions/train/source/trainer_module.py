@@ -1,11 +1,9 @@
 import lightning as L
 import torch.nn as nn
 import torch
-from workflow_actions.dataset_preprocessor.dataset_preprocessor import (
-    DatasetPreprocessor,
+from workflow_actions.dataset_preprocessor.run import (
+    dp,
 )
-from workflow_actions.paths import DATASET_PREPROCESSOR_CONFIG_PATH
-from workflow_actions.json_handlers import read_json_to_dict
 from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
 from dataclasses import dataclass
 from typing import Literal
@@ -34,10 +32,6 @@ class TrainerModule(L.LightningModule):
             "AdamW": torch.optim.AdamW,
             "Adam": torch.optim.Adam,
         }
-
-        if do_pre_epoch_hook:
-            prepare_dataset_cfg = read_json_to_dict(DATASET_PREPROCESSOR_CONFIG_PATH)
-            self.dp = DatasetPreprocessor(**prepare_dataset_cfg)
 
     def forward(self, x):
         x = self.model(x)
@@ -95,6 +89,6 @@ class TrainerModule(L.LightningModule):
 
         return optimizer
 
-    def on_train_epoch_start(self) -> None:
+    def on_train_epoch_end(self) -> None:
         if self.do_pre_epoch_hook:
-            self.dp.pre_epoch_augment_hook()
+            dp.pre_epoch_augment_hook()

@@ -62,8 +62,8 @@ if __name__ == "__main__":
     X_aug_list = augmenter([X])
     X_aug = X_aug_list[0]
 
-    spec_orig = X[0].detach().cpu()
-    spec_aug = X_aug[0].detach().cpu()
+    spec_orig = X[0].cpu()
+    spec_aug = X_aug[0].cpu()
 
     fig, axs = plt.subplots(1, 2, figsize=(10, 4))
 

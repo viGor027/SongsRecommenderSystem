@@ -161,7 +161,7 @@ class Train:
         n_startup_trials = (
             int(self.optuna_config.optuna["n_trials"] * 0.15)
             if self.optuna_config is not None
-            else 15
+            else 3
         )
         self.PRUNERS_MAP = {
             "median": partial(
@@ -412,7 +412,6 @@ class Train:
                 callbacks_config_from="single_cfg",
                 **self.single_training_config.callbacks,
                 checkpoint_name_prefix=self.single_training_config.run_name,
-                add_pruning=True,
                 trial=trial,
             )
             ckpt_path, best_val = Train.one_model_with_wandb(
@@ -437,9 +436,13 @@ class Train:
             study_name=f"OptunaHparamSearch_{self.single_training_config.run_name}",
             direction="minimize",
             sampler=self.SAMPLERS_MAP["tpe"](),
-            pruner=self.PRUNERS_MAP["median"](),
+            pruner=(
+                self.PRUNERS_MAP["median"]()
+                if self.single_training_config.callbacks["add_pruning"]
+                else None
+            ),
         )
-        study.optimize(objective, n_trials=100)
+        study.optimize(objective, n_trials=10)
 
         best_cfg = study.best_trial.params
         write_dict_to_json(

@@ -52,9 +52,6 @@ class AugmentedDataset(Dataset):
     @staticmethod
     def collate_concat(batch):
         xs, ys = zip(*batch)
-        xs = AugmentedDataset.fragment_pipeline.process_raw_fragments(
-            fragments=xs, augment=True
-        )
         xs = torch.stack(xs, dim=0)
         ys = torch.stack(ys, dim=0)
         return xs, ys

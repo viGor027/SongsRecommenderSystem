@@ -2,9 +2,9 @@
   "run_single_training_config": {
     "architecture": {
       "class_name": "ResNetAssembly",
-      "backbone_name": "TO_BE_OVERWRITTEN",
-      "weights": "TO_BE_OVERWRITTEN",
-      "freeze_backbone": "TO_BE_OVERWRITTEN",
+      "backbone_name": "resnet101",
+      "weights": "IMAGENET1K_V1",
+      "freeze_backbone": false,
       "sequence_encoder": {
         "n_seq_encoder_layers": 1,
         "n_units_per_seq_encoder_layer": [],
@@ -21,7 +21,7 @@
     },
     "dataloaders": {
       "dataset_type": "ram_dataset",
-      "batch_size": 64,
+      "batch_size": "TO_BE_OVERWRITTEN",
       "num_workers": 0,
       "persistent_workers": false,
       "prefetch_factor": null,
@@ -29,8 +29,9 @@
       "drop_last": false
     },
     "callbacks": {
-      "add_model_checkpoint": false,
-      "add_early_stopping": true
+      "add_model_checkpoint": true,
+      "add_early_stopping": true,
+      "add_pruning": false
     },
     "early_stopping": {
       "monitor": "val_loss",
@@ -41,13 +42,13 @@
     "trainer": {
         "max_epochs": 100,
         "accelerator": "auto",
-        "precision": "32-true",
+        "precision": "bf16-true",
         "log_every_n_steps": 50,
-        "enable_checkpointing": false
+        "enable_checkpointing": true
     },
     "optimization": "TO_BE_OVERWRITTEN",
-    "do_pre_epoch_hook": false,
-    "project": "SongRecommenderSystem",
-    "run_name": "TO_BE_OVERWRITTEN"
+    "do_pre_epoch_hook": true,
+    "project": "WB_tests",
+    "run_name": "Resnet101_IMAGENET1K_V1"
   }
 }

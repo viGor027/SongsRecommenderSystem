@@ -4,7 +4,6 @@ from workflow_actions.train.source.optuna_config_builder_config_schemas import (
     CnnDenseBounds,
     CnnRnnDenseBounds,
     DenseBounds,
-    VAEBounds,
     Blocks,
 )
 
@@ -23,7 +22,6 @@ class OptunaAssemblyConfigBuilder:
         cnn_dense_bounds: dict | None = None,
         cnn_rnn_dense_bounds: dict | None = None,
         dense_bounds: dict | None = None,
-        vae_bounds: dict | None = None,
         trial: optuna.Trial | None = None,
     ):
         """
@@ -53,8 +51,6 @@ class OptunaAssemblyConfigBuilder:
             DenseBounds(**dense_bounds) if dense_bounds is not None else None
         )
 
-        self.vae_bounds = VAEBounds(**vae_bounds) if vae_bounds is not None else None
-
         self.blocks = Blocks(**blocks) if blocks is not None else None
 
         self.input_len = input_len
@@ -81,7 +77,6 @@ class OptunaAssemblyConfigBuilder:
             "CnnDenseAssembly": self._build_cnn_dense_cfg,
             "CnnRnnDenseAssembly": self._build_cnn_rnn_dense_cfg,
             "DenseAssembly": self._build_dense_cfg,
-            "VAEAssembly": self._build_vae_cfg,
         }
 
     def build_assembly_config(self) -> tuple[dict, str]:
@@ -95,7 +90,6 @@ class OptunaAssemblyConfigBuilder:
             # [
             # "CnnDenseAssembly", "RnnDenseAssembly",
             # "CnnRnnDenseAssembly", "DenseAssembly",
-            # "VAEAssembly
             # ],
         )
         return self.builders_map[assembly_type](
@@ -291,31 +285,6 @@ class OptunaAssemblyConfigBuilder:
             "classifier": self._get_classifier_config(),
         }
 
-    def _build_vae_cfg(self, assembly_name: str):
-        n_seq_encoder_layers = self.trial.suggest_int(
-            f"{assembly_name}/n_seq_encoder_layers",
-            *self.vae_bounds.n_seq_encoder_layers,
-        )
-        return {
-            "class_name": "VAEAssembly",
-            "sequence_encoder": {
-                "n_seq_encoder_layers": n_seq_encoder_layers,
-                "n_units_per_seq_encoder_layer": [
-                    self.trial.suggest_int(
-                        f"{assembly_name}/n_units_per_seq_encoder_layer_{i}",
-                        *self.vae_bounds.n_units_per_seq_encoder_layer,
-                        step=self.optuna_step * 4,
-                    )
-                    for i in range(n_seq_encoder_layers - 1)
-                ],
-                "seq_encoder_activation": self.trial.suggest_categorical(
-                    f"{assembly_name}/seq_encoder_activation", self.ACTIVATIONS
-                ),
-                "n_embedding_dims": self.n_embedding_dims,
-            },
-            "classifier": self._get_classifier_config(),
-        }
-
     def _get_classifier_config(self) -> dict:
         return {
             "n_classifier_layers": 1,
@@ -326,39 +295,24 @@ class OptunaAssemblyConfigBuilder:
 
     @staticmethod
     def suggest_training_hparams(trial):
-        batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
+        batch_size = trial.suggest_categorical("batch_size", [16, 32, 48, 64])
 
-        optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "AdamW"])
+        optimizer_name = "AdamW"
 
-        if optimizer_name == "Adam":
-            lr = trial.suggest_float("adam_lr", 1e-5, 1e-3, log=True)
-            optimizer_params = {"lr": lr}
-        else:
-            lr = trial.suggest_float("adamw_lr", 1e-5, 1e-3, log=True)
-            weight_decay = trial.suggest_float(
-                "adamw_weight_decay", 1e-6, 1e-2, log=True
-            )
-            optimizer_params = {"lr": lr, "weight_decay": weight_decay}
+        weight_decay = trial.suggest_float("adamw_weight_decay", 1e-6, 1e-2, log=True)
 
-        schedule_choice = trial.suggest_categorical(
-            "lr_schedule", ["none", "warmup_cosine"]
-        )
+        optimizer_params = {
+            "lr": 1e-4,
+            "weight_decay": weight_decay,
+        }
 
-        if schedule_choice == "none":
-            lr_schedule = None
-            lr_schedule_params = None
-        else:
-            lr_schedule = "warmup_cosine"
-            start_factor = trial.suggest_float("warmup_start_factor", 0.01, 0.5)
-            warmup_iters = trial.suggest_int("warmup_iters", 1, 10)
-            T_max = trial.suggest_int("cosine_T_max", 10, 100)
-            eta_min = trial.suggest_float("cosine_eta_min", 1e-6, 1e-4, log=True)
-            lr_schedule_params = {
-                "start_factor": start_factor,
-                "warmup_iters": warmup_iters,
-                "T_max": T_max,
-                "eta_min": eta_min,
-            }
+        lr_schedule = "warmup_cosine"
+        lr_schedule_params = {
+            "start_factor": 0.1,
+            "warmup_iters": 15,
+            "T_max": 90,
+            "eta_min": 1e-6,
+        }
 
         return {
             "batch_size": batch_size,
