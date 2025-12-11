@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
 
 if TYPE_CHECKING:
     from workflow_actions.dataset_preprocessor.source.chunker import (
@@ -180,7 +181,8 @@ class DatasetPreprocessor:
             for song in songs_to_process
         ]
 
-        with ProcessPoolExecutor(max_workers=max_workers) as ex:
+        ctx = mp.get_context("spawn")
+        with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as ex:
             list(ex.map(_process_single_song_mp_wrapper, jobs))
 
         if self._first_pre_epoch_hook_run:

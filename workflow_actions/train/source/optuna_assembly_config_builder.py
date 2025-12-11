@@ -295,7 +295,7 @@ class OptunaAssemblyConfigBuilder:
 
     @staticmethod
     def suggest_training_hparams(trial):
-        batch_size = trial.suggest_categorical("batch_size", [16, 32, 48, 64])
+        batch_size = trial.suggest_categorical("batch_size", [32, 64])
 
         optimizer_name = "AdamW"
 

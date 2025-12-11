@@ -1,5 +1,6 @@
 import torch
 import torchaudio.transforms as T
+import random
 
 
 class SpectrogramAugment:
@@ -36,11 +37,15 @@ class SpectrogramAugment:
         """
         if not spectrograms:
             return []
-
-        batch = torch.stack(spectrograms, dim=0)  # [batch, 1, n_mels, len]
-        for t in self.transforms:
-            batch = t(batch)
-        return [b.clone() for b in batch]
+        augmented_specs = []
+        for spec in spectrograms:
+            augmented_spec = spec
+            for t in self.transforms:
+                augmented_spec = (
+                    t(spec, mask_value=-80.0) if random.random() < 0.5 else spec
+                )
+            augmented_specs.append(augmented_spec)
+        return augmented_specs
 
 
 if __name__ == "__main__":
@@ -76,5 +81,5 @@ if __name__ == "__main__":
     fig.colorbar(im1, ax=axs[1])
 
     plt.tight_layout()
-    out_path = "../raw_augmentations_overview/X_0_spectrogram_augment_2.png"
+    out_path = "../raw_augmentations_overview/X_0_spectrogram_augment_1.png"
     fig.savefig(out_path)

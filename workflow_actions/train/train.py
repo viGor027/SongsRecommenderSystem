@@ -181,13 +181,8 @@ class Train:
             ),
         }
 
-        self._dataset_cache = {
-            "train": None,
-            "valid": None,
-        }
-
+    @staticmethod
     def get_dataloaders(
-        self,
         dataset_type: Literal["ram_dataset", "augmented_dataset"],
         batch_size: int = 32,
         num_workers: int = 4,
@@ -201,18 +196,8 @@ class Train:
             "augmented_dataset": AugmentedDataset,
         }[dataset_type]
 
-        train_dataset = (
-            dataset_cls(dataset_type="train")
-            if self._dataset_cache["train"] is None
-            else self._dataset_cache["train"]
-        )
-        valid_dataset = (
-            dataset_cls(dataset_type="valid")
-            if self._dataset_cache["valid"] is None
-            else self._dataset_cache["valid"]
-        )
-        self._dataset_cache["train"] = train_dataset
-        self._dataset_cache["valid"] = valid_dataset
+        train_dataset = dataset_cls(dataset_type="train")
+        valid_dataset = dataset_cls(dataset_type="valid")
 
         train_loader = DataLoader(
             train_dataset,
