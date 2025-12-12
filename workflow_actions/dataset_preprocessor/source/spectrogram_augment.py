@@ -41,9 +41,8 @@ class SpectrogramAugment:
         for spec in spectrograms:
             augmented_spec = spec
             for t in self.transforms:
-                augmented_spec = (
-                    t(spec, mask_value=-80.0) if random.random() < 0.5 else spec
-                )
+                if random.random() < 0.5:
+                    augmented_spec = t(augmented_spec, mask_value=-80.0)
             augmented_specs.append(augmented_spec)
         return augmented_specs
 
@@ -81,5 +80,5 @@ if __name__ == "__main__":
     fig.colorbar(im1, ax=axs[1])
 
     plt.tight_layout()
-    out_path = "../raw_augmentations_overview/X_0_spectrogram_augment_1.png"
+    out_path = "../raw_augmentations_overview/X_0_spectrogram_augment_2.png"
     fig.savefig(out_path)
