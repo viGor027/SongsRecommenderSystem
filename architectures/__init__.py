@@ -3,6 +3,7 @@ from .assemblies.cnn_dense_assembly import CnnDenseAssembly
 from .assemblies.cnn_rnn_dense_assembly import CnnRnnDenseAssembly
 from .assemblies.dense_assembly import DenseAssembly
 from .assemblies.resnet_assembly import ResNetAssembly
+from .assemblies.aggregator_assembly import AggregatorAssembly
 from .model_components.temporal_compressor.convolutional.conv2d_with_skip import (
     Conv2DBlockWithSkip,
 )
@@ -24,6 +25,7 @@ from .model_components.temporal_compressor.convolutional.conv1d_block_with_dilat
 from .model_components.classifier.base_classifier import BaseClassifier
 
 __all__ = [
+    "AggregatorAssembly",
     "RnnDenseAssembly",
     "CnnDenseAssembly",
     "CnnRnnDenseAssembly",

@@ -1,4 +1,5 @@
 from architectures import (
+    AggregatorAssembly,
     CnnRnnDenseAssembly,
     CnnDenseAssembly,
     RnnDenseAssembly,
@@ -11,7 +12,9 @@ from architectures import (
     Conv2DBlockNoSkip,
     Conv2DBlockWithSkip,
 )
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
+import torch
+from workflow_actions.paths import TRAINED_MODELS_DIR
 
 if TYPE_CHECKING:
     from architectures.assemblies.assembly import Assembly
@@ -24,6 +27,7 @@ class ModelInitializer:
 
     def __init__(self):
         self.assembly_map = {
+            "AggregatorAssembly": AggregatorAssembly,
             "CnnDenseAssembly": CnnDenseAssembly,
             "RnnDenseAssembly": RnnDenseAssembly,
             "CnnRnnDenseAssembly": CnnRnnDenseAssembly,
@@ -46,6 +50,7 @@ class ModelInitializer:
             "CnnRnnDenseAssembly": self._cnn_assembly_init,
             "DenseAssembly": self._dense_assembly_init,
             "ResNetAssembly": self._resnet_assembly_init,
+            "AggregatorAssembly": self._aggregator_assembly_init,
         }
 
     def get_pretrained_torch_model(self):
@@ -54,7 +59,9 @@ class ModelInitializer:
     def get_model_from_pretrained(self):
         raise NotImplementedError("Implement this method")
 
-    def get_model_assembly(self, assembly_config: dict) -> "Assembly":
+    def get_model_assembly(
+        self, assembly_config: dict
+    ) -> Union["Assembly", AggregatorAssembly]:
         assembly_class_name = assembly_config.get("class_name", "")
         if not assembly_class_name:
             raise KeyError("assembly_config doesn't contain `class_name` key")
@@ -62,6 +69,57 @@ class ModelInitializer:
         return self.initializer_map[assembly_class_name](
             assembly_config, assembly_class_name
         )
+
+    def _aggregator_assembly_init(
+        self, assembly_config: dict, assembly_class_name: str
+    ):
+        classifier_cfg = assembly_config.get("classifier", {})
+        embedding_model_ckpt_filename = assembly_config.get(
+            "embedding_model_ckpt_filename"
+        )
+        embedding_model_config = assembly_config.get("embedding_model_config")
+        map_location = assembly_config.get("map_location")
+        aggregator_type = assembly_config.get("aggregator_type")
+        trainable_aggregator = assembly_config.get("trainable_aggregator")
+        if not embedding_model_ckpt_filename:
+            raise KeyError(
+                "assembly_config doesn't contain `embedding_model_ckpt_filename` key"
+            )
+        if not embedding_model_config:
+            raise KeyError(
+                "assembly_config doesn't contain `embedding_model_config` key"
+            )
+        if not map_location:
+            raise KeyError("assembly_config doesn't contain `map_location` key")
+        if not aggregator_type:
+            raise KeyError("assembly_config doesn't contain `aggregator_type` key")
+        if trainable_aggregator is None:
+            raise KeyError("assembly_config doesn't contain `trainable_aggregator` key")
+
+        embedding_model_assembly = self.get_model_assembly(
+            assembly_config=embedding_model_config
+        )
+        ckpt = torch.load(
+            TRAINED_MODELS_DIR / embedding_model_ckpt_filename,
+            map_location=map_location,
+        )
+        state_dict = ckpt["state_dict"]
+
+        # TrainerModule: self.model = model
+        state_dict = {
+            k.removeprefix("model."): v
+            for k, v in state_dict.items()
+            if k.startswith("model.")
+        }
+        embedding_model_assembly.load_state_dict(state_dict=state_dict)
+
+        aggregator_assembly = self.assembly_map[assembly_class_name](
+            embedding_model=embedding_model_assembly,
+            aggregator_type=aggregator_type,
+            trainable_aggregator=trainable_aggregator,
+        )
+        aggregator_assembly.init_classifier(**classifier_cfg)
+        return aggregator_assembly
 
     def _resnet_assembly_init(self, assembly_config: dict, assembly_class_name: str):
         backbone_name = assembly_config.get("backbone_name", False)
