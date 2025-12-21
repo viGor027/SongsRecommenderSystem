@@ -2,6 +2,7 @@ from workflow_actions.paths import (
     DOWNLOAD_DIR,
     FRAGMENTATION_STAMP_PATH,
     FRAGMENTATION_INDEX_PATH,
+    FRAGMENTED_DATA_DIR,
     SCRAPE_STAMP_PATH,
     MODEL_READY_TRAIN_DIR,
     MODEL_READY_VALID_DIR,
@@ -29,7 +30,11 @@ if TYPE_CHECKING:
 
 
 def _process_single_song_mp(
-    song_path_str: str, chunker_cfg: dict, pipeline_cfg: dict, affect_valid: bool
+    song_path_str: str,
+    chunker_cfg: dict,
+    pipeline_cfg: dict,
+    affect_valid: bool,
+    serialize_song_wise: bool = False,
 ):
     from pathlib import Path
     from workflow_actions.paths import DOWNLOAD_DIR, FRAGMENTATION_INDEX_PATH
@@ -73,12 +78,15 @@ def _process_single_song_mp(
         song_title=song_title,
         samples={"train": train_specs, "valid": valid_specs},
         serialize_valid=affect_valid,
+        song_wise=serialize_song_wise,
     )
 
 
-def _process_single_song_mp_wrapper(args: tuple[str, dict, dict, bool]):
-    song_path_str, chunker_cfg, pipeline_cfg, affect_valid = args
-    _process_single_song_mp(song_path_str, chunker_cfg, pipeline_cfg, affect_valid)
+def _process_single_song_mp_wrapper(args: tuple[str, dict, dict, bool, bool]):
+    song_path_str, chunker_cfg, pipeline_cfg, affect_valid, serialize_song_wise = args
+    _process_single_song_mp(
+        song_path_str, chunker_cfg, pipeline_cfg, affect_valid, serialize_song_wise
+    )
 
 
 class DatasetPreprocessor:
@@ -111,9 +119,11 @@ class DatasetPreprocessor:
 
         self.sample_packer = SamplePacker(**sample_packer)
 
+        self._packed_fragmentation_index = self._load_fragmentation_index()
         self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = (
-            self._load_fragmentation_index()
+            self._packed_fragmentation_index[0]
         )
+        self._fragmentation_index_time_stamp = self._packed_fragmentation_index[1]
         self._index_present_songs = set(list(self._fragmentation_index.keys()))
 
         self._broken_songs = []
@@ -163,7 +173,7 @@ class DatasetPreprocessor:
         self.sample_packer.pack()
         write_dict_to_json(self.fragment_pipeline_cfg, PIPELINE_RUN_RECORD_PATH)
 
-    def pre_epoch_augment_hook(self, max_workers=8):
+    def pre_epoch_augment_hook(self, max_workers=8, serialize_song_wise: bool = False):
         if self._first_pre_epoch_hook_run:
             self._remove_samples_from_dir(MODEL_READY_VALID_DIR, delete_ys=True)
             self._remove_samples_from_dir(MODEL_READY_TRAIN_DIR, delete_ys=True)
@@ -177,7 +187,13 @@ class DatasetPreprocessor:
         ]
         affect_valid = self._first_pre_epoch_hook_run
         jobs = [
-            (str(song), self.chunker_cfg, self.fragment_pipeline_cfg, affect_valid)
+            (
+                str(song),
+                self.chunker_cfg,
+                self.fragment_pipeline_cfg,
+                affect_valid,
+                serialize_song_wise,
+            )
             for song in songs_to_process
         ]
 
@@ -186,8 +202,38 @@ class DatasetPreprocessor:
             list(ex.map(_process_single_song_mp_wrapper, jobs))
 
         if self._first_pre_epoch_hook_run:
-            self.serializer.create_all_ys()
+            self.serializer.create_all_ys(song_wise=serialize_song_wise)
             self._first_pre_epoch_hook_run = False
+
+    def create_non_overlapping_index_from_overlapping(self):
+        now = datetime.now()
+        new_index = {
+            "time_stamp": now.strftime("%Y/%m/%d_%H-%M-%S"),
+            "from_index": self._fragmentation_index_time_stamp,
+            "fragmentation_index": {},
+        }
+        for song_idx, (song_title, slices) in enumerate(
+            self._fragmentation_index.items()
+        ):
+            new_song_idx = {
+                "train": [],
+                "valid": [],
+            }
+            for set_type in ["train", "valid"]:
+                current_slices = slices[set_type]
+                new_slices = []
+                current_slice = current_slices[0]
+                new_slices.append(current_slice)
+                for slice_idx in range(1, len(current_slices)):
+                    previous_slice_end = new_slices[-1][1]
+                    current_slice_beginning = current_slices[slice_idx][0]
+                    if current_slice_beginning >= previous_slice_end:
+                        new_slices.append(current_slices[slice_idx])
+                new_song_idx[set_type] = new_slices
+            new_index["fragmentation_index"][song_title] = new_song_idx
+        write_dict_to_json(
+            new_index, FRAGMENTED_DATA_DIR / "non_overlapping_fragmentation_index.json"
+        )
 
     def _create_fragmentation_for_single_song(
         self,
@@ -253,7 +299,8 @@ class DatasetPreprocessor:
     @staticmethod
     def _load_fragmentation_index():
         try:
-            return read_json_to_dict(FRAGMENTATION_INDEX_PATH)["fragmentation_index"]
+            full_idx = read_json_to_dict(FRAGMENTATION_INDEX_PATH)
+            return full_idx["fragmentation_index"], full_idx["time_stamp"]
         except FileNotFoundError as e:
             print(
                 f"{str(e)}.\nRun DatasetPreprocessor.create_fragmentation_for_all_songs first."

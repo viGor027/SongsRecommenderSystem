@@ -8,4 +8,5 @@ prepare_dataset_cfg = read_json_to_dict(DATASET_PREPROCESSOR_CONFIG_PATH)
 dp = DatasetPreprocessor(**prepare_dataset_cfg)
 
 if __name__ == "__main__":
-    dp.pre_epoch_augment_hook(max_workers=10)
+    # dp.pre_epoch_augment_hook(max_workers=10)
+    dp.pre_epoch_augment_hook(max_workers=5, serialize_song_wise=True)
