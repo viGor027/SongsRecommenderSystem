@@ -91,4 +91,4 @@ class TrainerModule(L.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         if self.do_pre_epoch_hook:
-            dp.pre_epoch_augment_hook(max_workers=10)
+            dp.prepare_model_ready_data()

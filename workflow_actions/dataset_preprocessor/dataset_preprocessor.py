@@ -6,7 +6,6 @@ from workflow_actions.paths import (
     SCRAPE_STAMP_PATH,
     MODEL_READY_TRAIN_DIR,
     MODEL_READY_VALID_DIR,
-    PIPELINE_RUN_RECORD_PATH,
 )
 from workflow_actions.dataset_preprocessor.source import (
     Chunker,
@@ -30,11 +29,11 @@ if TYPE_CHECKING:
 
 
 def _process_single_song_mp(
-    song_path_str: str,
+    song_str_with_extension: str,
     chunker_cfg: dict,
     pipeline_cfg: dict,
+    serializer_cfg: dict,
     affect_valid: bool,
-    serialize_song_wise: bool = False,
 ):
     from pathlib import Path
     from workflow_actions.paths import DOWNLOAD_DIR, FRAGMENTATION_INDEX_PATH
@@ -45,19 +44,18 @@ def _process_single_song_mp(
         Serializer,
     )
 
-    song_path = Path(song_path_str)
-    song_title = song_path.stem
+    song_path_obj = Path(song_str_with_extension)
+    song_title = song_path_obj.stem
 
     chunker = Chunker(**chunker_cfg)
     fragment_pipeline = FragmentPipeline(**pipeline_cfg)
-    sample_rate = fragment_pipeline.spectrogram_extractor.sample_rate
-    serializer = Serializer(load_sample_rate=sample_rate)
+    serializer = Serializer(**serializer_cfg)
 
     frag_index = read_json_to_dict(FRAGMENTATION_INDEX_PATH)["fragmentation_index"][
         song_title
     ]
 
-    song, sr = serializer.load_single_song_to_numpy(DOWNLOAD_DIR / song_path.name)
+    song, sr = serializer.load_single_song_to_numpy(DOWNLOAD_DIR / song_path_obj.name)
 
     fragments = chunker.make_song_slices(
         song=song,
@@ -78,29 +76,39 @@ def _process_single_song_mp(
         song_title=song_title,
         samples={"train": train_specs, "valid": valid_specs},
         serialize_valid=affect_valid,
-        song_wise=serialize_song_wise,
     )
 
 
-def _process_single_song_mp_wrapper(args: tuple[str, dict, dict, bool, bool]):
-    song_path_str, chunker_cfg, pipeline_cfg, affect_valid, serialize_song_wise = args
+def _process_single_song_mp_wrapper(args: tuple[str, dict, dict, dict, bool]):
+    song_str_with_extension, chunker_cfg, pipeline_cfg, serializer_cfg, affect_valid = (
+        args
+    )
     _process_single_song_mp(
-        song_path_str, chunker_cfg, pipeline_cfg, affect_valid, serialize_song_wise
+        song_str_with_extension, chunker_cfg, pipeline_cfg, serializer_cfg, affect_valid
     )
 
 
 class DatasetPreprocessor:
     def __init__(
         self,
+        n_workers: int,
         chunker: dict,
         fragment_pipeline: dict,
         sample_packer: dict,
+        serializer: dict,
     ):
+        self.n_workers = n_workers
+
         self.chunker_cfg = chunker
         self.fragment_pipeline_cfg = fragment_pipeline
 
         self.chunker = Chunker(**self.chunker_cfg)
         self.fragment_pipeline = FragmentPipeline(**self.fragment_pipeline_cfg)
+
+        self.serializer_cfg = serializer
+        self.serializer = Serializer(**self.serializer_cfg)
+
+        self.sample_packer = SamplePacker(**sample_packer)
 
         if (
             self.chunker.sample_rate
@@ -114,10 +122,6 @@ class DatasetPreprocessor:
             )
         else:
             _sample_rate = self.fragment_pipeline.spectrogram_extractor.sample_rate
-
-        self.serializer = Serializer(load_sample_rate=_sample_rate)
-
-        self.sample_packer = SamplePacker(**sample_packer)
 
         self._packed_fragmentation_index = self._load_fragmentation_index()
         self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = (
@@ -133,7 +137,7 @@ class DatasetPreprocessor:
             list(DOWNLOAD_DIR.iterdir()), key=lambda path: path.name
         )
 
-        self._first_pre_epoch_hook_run = True
+        self._first_pipeline_run = True
 
     def create_fragmentation_for_all_songs(self):
         global_fragments_index = GlobalFragmentsIndex()
@@ -150,71 +154,73 @@ class DatasetPreprocessor:
             fragmentation_index=fragmentation_index,
         )
 
-    def run_pipeline(self, for_sanity_check: bool = False, augment: bool = False):
-        """Populates 03_model_ready with samples."""
-        self._assure_local_song_files_match_fragmentation_index()
-        self._remove_samples_from_dir(MODEL_READY_VALID_DIR, delete_ys=True)
-        self._remove_samples_from_dir(MODEL_READY_TRAIN_DIR, delete_ys=True)
-        songs_to_process = (
-            self._SONGS_ITERATION_ORDER
-            if not for_sanity_check
-            else self._SONGS_ITERATION_ORDER[:1]
-        )
-        for song in songs_to_process:
-            if song.stem not in self._index_present_songs:
-                continue
-            self._run_pipeline_for_single_song(song=song, augment=augment)
-
-        if not for_sanity_check:
-            self.serializer.create_all_ys()
-        else:
-            self.serializer.create_single_song_ys(song_title=songs_to_process[0].stem)
-
-        self.sample_packer.pack()
-        write_dict_to_json(self.fragment_pipeline_cfg, PIPELINE_RUN_RECORD_PATH)
-
-    def pre_epoch_augment_hook(self, max_workers=8, serialize_song_wise: bool = False):
-        if self._first_pre_epoch_hook_run:
+    def prepare_model_ready_data(self, for_sanity_check: bool = False):
+        """
+        Notes:
+         - This method has two intended usages: offline full build (first run) and online refresh between epochs (subsequent runs).
+         - Online usage assumes SamplePacker.group_size is None (pack is a no-op); only train X_* are regenerated and y_*/valid are reused.
+         - Offline usage (first run) removes train+valid X_*/y_*, regenerates data and y_*; optional packing is done only when SamplePacker.group_size is an int.
+         - for_sanity_check is offline-only.
+        """
+        if self._first_pipeline_run:
+            self._assure_local_song_files_match_fragmentation_index()
             self._remove_samples_from_dir(MODEL_READY_VALID_DIR, delete_ys=True)
             self._remove_samples_from_dir(MODEL_READY_TRAIN_DIR, delete_ys=True)
         else:
             self._remove_samples_from_dir(MODEL_READY_TRAIN_DIR, delete_ys=False)
 
-        songs_to_process = [
+        index_and_disk_present_songs = [
             song
             for song in self._SONGS_ITERATION_ORDER
             if song.stem in self._index_present_songs
         ]
-        affect_valid = self._first_pre_epoch_hook_run
+
+        songs_to_process = (
+            index_and_disk_present_songs[:1]
+            if for_sanity_check
+            else index_and_disk_present_songs
+        )
+
+        affect_valid = self._first_pipeline_run
         jobs = [
             (
                 str(song),
                 self.chunker_cfg,
                 self.fragment_pipeline_cfg,
+                self.serializer_cfg,
                 affect_valid,
-                serialize_song_wise,
             )
             for song in songs_to_process
         ]
 
         ctx = mp.get_context("spawn")
-        with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as ex:
+        with ProcessPoolExecutor(max_workers=self.n_workers, mp_context=ctx) as ex:
             list(ex.map(_process_single_song_mp_wrapper, jobs))
 
-        if self._first_pre_epoch_hook_run:
-            self.serializer.create_all_ys(song_wise=serialize_song_wise)
-            self._first_pre_epoch_hook_run = False
+        if self._first_pipeline_run:
+            if for_sanity_check:
+                self.serializer.create_single_song_ys(
+                    song_title=songs_to_process[0].stem,
+                )
+                self._first_pipeline_run = True
+            else:
+                self.serializer.create_all_ys()
+                self._first_pipeline_run = False
 
-    def create_non_overlapping_index_from_overlapping(self):
+        self.sample_packer.pack()
+
+    @staticmethod
+    def create_non_overlapping_index_from_overlapping(
+        overlapping_index: dict[str, list[int, int]],
+        overlapping_index_time_stamp: str,
+    ):
         now = datetime.now()
         new_index = {
             "time_stamp": now.strftime("%Y/%m/%d_%H-%M-%S"),
-            "from_index": self._fragmentation_index_time_stamp,
+            "from_index": overlapping_index_time_stamp,
             "fragmentation_index": {},
         }
-        for song_idx, (song_title, slices) in enumerate(
-            self._fragmentation_index.items()
-        ):
+        for song_idx, (song_title, slices) in enumerate(overlapping_index.items()):
             new_song_idx = {
                 "train": [],
                 "valid": [],
@@ -259,27 +265,6 @@ class DatasetPreprocessor:
         )
         global_fragments_index.add_song_to_valid(
             song_title=song_title, n_fragments=len(song_fragmentation_index["valid"])
-        )
-
-    def _run_pipeline_for_single_song(self, song: Path, augment: bool):
-        """Pass song with extension."""
-        song_fragments = self._load_fragments_for_song(song_title=song.stem)
-        train_fgs, valid_fgs = song_fragments["train"], song_fragments["valid"]
-        train_specs = self.fragment_pipeline.process_raw_fragments(
-            fragments=train_fgs,
-            augment=augment,
-        )
-        valid_specs = self.fragment_pipeline.process_raw_fragments(
-            fragments=valid_fgs,
-            augment=False,
-        )
-        self.serializer.serialize_song_samples(
-            song_title=song.stem,
-            samples={
-                "train": train_specs,
-                "valid": valid_specs,
-            },
-            serialize_valid=True,
         )
 
     def _load_fragments_for_song(
@@ -329,11 +314,6 @@ class DatasetPreprocessor:
         global_fragments_index.dump_indexes()
 
     def _assure_local_song_files_match_fragmentation_index(self):
-        if not self._index_present_songs:
-            raise RuntimeError(
-                "before running _disc_and_fragmentation_index_integrity_check load_indexes must be run."
-            )
-
         disk_present_songs = set(
             read_json_to_dict(SCRAPE_STAMP_PATH)["downloaded_songs"]
         )

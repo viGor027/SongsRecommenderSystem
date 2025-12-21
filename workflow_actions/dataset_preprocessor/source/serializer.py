@@ -14,10 +14,15 @@ from workflow_actions.json_handlers import read_json_to_dict
 
 
 class Serializer:
-    warning_already_printed = False
+    def __init__(self, load_sample_rate: int, serialize_song_wise: bool):
+        """
+        Notes:
+         - serialize_song_wise=False requires both indexes of GlobalFragmentsIndex to exist on disk.
+         - serialize_song_wise=True stores one stacked X per song (X_<song_idx>.pt) and relies on a stable ordering of fragmentation_index keys.
+        """
+        self._load_sample_rate = load_sample_rate
+        self._serialize_song_wise = serialize_song_wise
 
-    def __init__(self, load_sample_rate: int):
-        self.load_sample_rate = load_sample_rate
         self.label_encoder = LabelEncoder()
         self.global_fragments_index = GlobalFragmentsIndex()
         try:
@@ -26,14 +31,15 @@ class Serializer:
                 "train": self.global_fragments_index.train_index,
                 "valid": self.global_fragments_index.valid_index,
             }
-        except FileNotFoundError:
-            if not Serializer.warning_already_printed:
+        except FileNotFoundError as e:
+            if not self._serialize_song_wise:
                 print(
                     "Serializer.__init__ WARNING:\n"
-                    "global_fragments indexes were not found on disk. "
-                    "Serialization only possible with song_wise=True"
+                    "global_fragments indexes were not found on disk.\n"
+                    "Only song-wise serialization is possible but serialize_song_wise was set to False.\n"
+                    "Set serialize_song_wise to True and try again.\n"
                 )
-                Serializer.warning_already_printed = True
+                raise e
 
         self._fragmentation_index = read_json_to_dict(FRAGMENTATION_INDEX_PATH)[
             "fragmentation_index"
@@ -44,11 +50,10 @@ class Serializer:
         samples: dict[str, list[torch.Tensor]],
         song_title,
         serialize_valid: bool,
-        song_wise: bool = False,
     ):
         sets = ["train", "valid"] if serialize_valid else ["train"]
         for set_type in sets:
-            if not song_wise:
+            if not self._serialize_song_wise:
                 index = self._set_type_to_index[set_type]
                 index_range = index[song_title]
 
@@ -69,16 +74,21 @@ class Serializer:
                     MODEL_READY_DATA_DIR / set_type / f"X_{sample_idx}.pt",
                 )
 
-    def create_all_ys(self, song_wise: bool = False):
+    def create_all_ys(self):
         for song_title in self._fragmentation_index.keys():
-            self.create_single_song_ys(song_title=song_title, song_wise=song_wise)
+            self.create_single_song_ys(song_title=song_title)
 
-    def create_single_song_ys(self, song_title, song_wise: bool = False):
+    def create_single_song_ys(self, song_title):
+        """
+        Notes:
+         - song_wise=True writes one y_<song_idx>.pt per song where song_idx is based on fragmentation_index key order.
+         - song_wise=False writes y_<absolute_idx>.pt for each sample where absolute_idx is based on GlobalFragmentsIndex.
+        """
         encoded_song_tags = self.label_encoder.encode_song_labels_to_multi_hot_vector(
             song_title=song_title,
         )
         for set_type in ["train", "valid"]:
-            if song_wise:
+            if self._serialize_song_wise:
                 sample_idx = list(self._fragmentation_index.keys()).index(song_title)
                 torch.save(
                     encoded_song_tags,
@@ -107,7 +117,7 @@ class Serializer:
     ) -> tuple[np.ndarray, int] | tuple[None, None]:
         try:
             song, sample_rate = librosa.load(
-                Serializer._resolve_audio_path(path), sr=self.load_sample_rate
+                Serializer._resolve_audio_path(path), sr=self._load_sample_rate
             )
         except Exception as _:
             print(f"There was a problem loading {path.stem}; Skipping...")

@@ -1,8 +1,9 @@
 {
+  "n_workers": 4,
   "fragment_pipeline": {
-    "apply_augmentations_on_raw": true,
-    "extract_spectrograms": true,
-    "apply_augmentations_on_spectrograms": true,
+    "apply_augmentations_on_raw": false,
+    "extract_spectrograms": false,
+    "apply_augmentations_on_spectrograms": false,
     "raw_augment": {
       "augmentations": [
         {
@@ -62,6 +63,10 @@
     "step": 1
   },
   "sample_packer": {
-    "group_size": 64
+    "group_size": null
+  },
+  "serializer": {
+    "load_sample_rate": 22050,
+    "serialize_song_wise": false
   }
 }

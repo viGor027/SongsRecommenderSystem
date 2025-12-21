@@ -10,13 +10,24 @@ class SamplePacker:
         will be packed together.
     """
 
-    def __init__(self, group_size: int, shuffle_before_pack: bool = False):
-        if group_size < 1:
+    def __init__(self, group_size: int | None, shuffle_before_pack: bool = False):
+        """If group_size is None then nothing will happen when running methods."""
+        if group_size is not None and group_size < 1:
             raise ValueError("group_size must be >= 1")
         self.group_size = group_size
         self.shuffle_before_pack = shuffle_before_pack
 
     def pack(self):
+        """
+        Notes:
+         - Intended for offline data preparation only; keep group_size=None for any online/training usage.
+         - Expects matching X_<id>.pt and y_<id>.pt files for every packed id.
+         - Writes shard_<n>.pt and deletes the X_*/y_* files that the given shard was created from.
+         - Does not remove pre-existing shard_*.pt; clean the target dirs or unpack existing shards with SamplePacker.unpack before packing to avoid stale shards.
+        """
+        if self.group_size is None:
+            return
+
         for folder in [MODEL_READY_TRAIN_DIR, MODEL_READY_VALID_DIR]:
             if not folder.exists():
                 raise FileNotFoundError(f"Data directory does not exist: {folder}")
@@ -44,6 +55,14 @@ class SamplePacker:
                 shard_num += 1
 
     def unpack(self):
+        """
+        Notes:
+         - Offline/debug helper: expands shard_*.pt back into X_*/y_* files and deletes shard file given X_*/y_*'s were created from.
+         - if shuffle_before_pack was True original ids/order are NOT preserved.
+        """
+        if self.group_size is None:
+            return
+
         for folder in [MODEL_READY_TRAIN_DIR, MODEL_READY_VALID_DIR]:
             if not folder.exists():
                 raise FileNotFoundError(f"Data directory does not exist: {folder}")
