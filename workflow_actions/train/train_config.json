@@ -1,31 +1,34 @@
 {
   "run_single_training_config": {
     "architecture": {
-      "weights": "IMAGENET1K_V1",
-      "class_name": "ResNetAssembly",
+      "class_name": "DenseAssembly",
       "classifier": {
         "n_classes": 110,
-        "sigmoid_output": true,
         "n_classifier_layers": 1,
         "classifier_activation": null,
         "n_units_per_classifier_layer": []
       },
-      "backbone_name": "resnet101",
-      "freeze_backbone": false,
-      "sequence_encoder": {
+      "feature_extractor": {
         "n_embedding_dims": 384,
-        "n_seq_encoder_layers": 1,
-        "seq_encoder_activation": null,
-        "n_units_per_seq_encoder_layer": []
+        "n_input_channels": 17280,
+        "n_feature_extractor_layers": 6,
+        "feature_extractor_activation": "relu",
+        "n_units_per_feature_extractor_layer": [
+          768,
+          768,
+          768,
+          640,
+          672
+        ]
       }
     },
     "dataloaders": {
       "drop_last": false,
       "batch_size": 64,
       "pin_memory": true,
-      "num_workers": 12,
-      "dataset_type": "augmented_dataset",
-      "prefetch_factor": 16,
+      "num_workers": 0,
+      "dataset_type": "ram_dataset",
+      "prefetch_factor": null,
       "persistent_workers": false
     },
     "early_stopping": {
@@ -40,16 +43,11 @@
     },
     "optimization": {
       "optimizer": "Adam",
-      "lr_schedule": "warmup_cosine",
+      "lr_schedule": null,
       "optimizer_params": {
-        "lr": 0.0005
+        "lr": 0.001
       },
-      "lr_schedule_params": {
-        "T_max": 90,
-        "eta_min": 0.000001,
-        "start_factor": 0.1,
-        "warmup_iters": 12
-      }
+      "lr_schedule_params": null
     },
     "trainer": {
       "precision": "32-true",
@@ -59,7 +57,7 @@
       "enable_checkpointing": true
     },
     "project": "SongRecommenderSystem",
-    "run_name": "resnet101_IMAGENET1K_V1_raw_aug_spec_aug",
-    "do_pre_epoch_hook": true
+    "run_name": "DenseAssembly_no_aug",
+    "do_pre_epoch_hook": false
   }
 }
