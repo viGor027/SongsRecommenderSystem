@@ -1,4 +1,5 @@
-{
+[
+  {
   "run_single_training_config": {
     "architecture": {
       "class_name": "DenseAssembly",
@@ -57,7 +58,180 @@
       "enable_checkpointing": true
     },
     "project": "SongRecommenderSystem",
-    "run_name": "DenseAssembly_no_aug",
+    "run_name": "BestDenseAssembly_no_aug",
     "do_pre_epoch_hook": false
   }
-}
+  },
+  {
+  "run_single_training_config": {
+    "architecture": {
+      "class_name": "CnnDenseAssembly",
+      "classifier": {
+        "n_classes": 110,
+        "n_classifier_layers": 1,
+        "classifier_activation": null,
+        "n_units_per_classifier_layer": []
+      },
+      "sequence_encoder": {
+        "n_embedding_dims": 384,
+        "n_seq_encoder_layers": 5,
+        "seq_encoder_activation": "relu",
+        "n_units_per_seq_encoder_layer": [
+          444,
+          340,
+          424,
+          404
+        ]
+      },
+      "temporal_compressor": {
+        "ConvCls": "Conv2DBlockWithSkip",
+        "n_blocks": 3,
+        "input_len": null,
+        "conv_activation": "relu",
+        "reduction_strat": "conv",
+        "n_input_channels": 1,
+        "n_filters_per_skip": [
+          8,
+          12,
+          8
+        ],
+        "n_layers_per_block": [
+          1,
+          2,
+          2
+        ],
+        "n_filters_per_block": [
+          32,
+          12,
+          24
+        ]
+      }
+  },
+    "dataloaders": {
+      "drop_last": false,
+      "batch_size": 64,
+      "pin_memory": true,
+      "num_workers": 0,
+      "dataset_type": "ram_dataset",
+      "prefetch_factor": null,
+      "persistent_workers": false
+    },
+    "early_stopping": {
+      "mode": "min",
+      "monitor": "val_loss",
+      "verbose": true,
+      "patience": 5
+    },
+    "callbacks": {
+      "add_early_stopping": true,
+      "add_model_checkpoint": true
+    },
+    "optimization": {
+      "optimizer": "Adam",
+      "lr_schedule": null,
+      "optimizer_params": {
+        "lr": 0.001
+      },
+      "lr_schedule_params": null
+    },
+    "trainer": {
+      "precision": "32-true",
+      "max_epochs": 100,
+      "accelerator": "auto",
+      "log_every_n_steps": 50,
+      "enable_checkpointing": true
+    },
+    "project": "SongRecommenderSystem",
+    "run_name": "BestCnnDenseC2D2_no_aug",
+    "do_pre_epoch_hook": false
+  }
+  },
+  {
+  "run_single_training_config": {
+    "architecture": {
+      "class_name": "CnnDenseAssembly",
+      "classifier": {
+        "n_classes": 110,
+        "n_classifier_layers": 1,
+        "classifier_activation": null,
+        "n_units_per_classifier_layer": []
+      },
+      "sequence_encoder": {
+        "n_embedding_dims": 384,
+        "n_seq_encoder_layers": 3,
+        "seq_encoder_activation": "hardswish",
+        "n_units_per_seq_encoder_layer": [
+          400,
+          416
+        ]
+      },
+      "temporal_compressor": {
+        "ConvCls": "Conv2DBlockWithSkip",
+        "n_blocks": 5,
+        "input_len": null,
+        "conv_activation": "hardswish",
+        "reduction_strat": "conv",
+        "n_input_channels": 1,
+        "n_filters_per_skip": [
+          8,
+          20,
+          16,
+          24,
+          8
+        ],
+        "n_layers_per_block": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "n_filters_per_block": [
+          64,
+          48,
+          32,
+          48,
+          52
+        ]
+      }
+  },
+    "dataloaders": {
+      "drop_last": false,
+      "batch_size": 64,
+      "pin_memory": true,
+      "num_workers": 0,
+      "dataset_type": "ram_dataset",
+      "prefetch_factor": null,
+      "persistent_workers": false
+    },
+    "early_stopping": {
+      "mode": "min",
+      "monitor": "val_loss",
+      "verbose": true,
+      "patience": 5
+    },
+    "callbacks": {
+      "add_early_stopping": true,
+      "add_model_checkpoint": true
+    },
+    "optimization": {
+      "optimizer": "Adam",
+      "lr_schedule": null,
+      "optimizer_params": {
+        "lr": 0.001
+      },
+      "lr_schedule_params": null
+    },
+    "trainer": {
+      "precision": "32-true",
+      "max_epochs": 100,
+      "accelerator": "auto",
+      "log_every_n_steps": 50,
+      "enable_checkpointing": true
+    },
+    "project": "SongRecommenderSystem",
+    "run_name": "BestCnnDenseC2D1_no_aug",
+    "do_pre_epoch_hook": false
+  }
+  }
+]

@@ -5,6 +5,7 @@ if __name__ == "__main__":
     from multiprocessing import freeze_support
 
     freeze_support()
-    training_cfg = read_json_to_dict(TRAIN_CONFIG_PATH)
-    train = Train(**training_cfg)
-    train.run_single_training()
+    configs = read_json_to_dict(TRAIN_CONFIG_PATH)
+    for training_cfg in configs:
+        train = Train(**training_cfg)
+        train.run_single_training()
