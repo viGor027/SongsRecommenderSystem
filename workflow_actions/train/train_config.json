@@ -233,5 +233,70 @@
     "run_name": "BestCnnDenseC2D1_no_aug",
     "do_pre_epoch_hook": false
   }
+  },
+  {
+  "run_single_training_config": {
+    "architecture": {
+      "weights": "IMAGENET1K_V1",
+      "class_name": "ResNetAssembly",
+      "classifier": {
+        "n_classes": 110,
+        "sigmoid_output": true,
+        "n_classifier_layers": 1,
+        "classifier_activation": null,
+        "n_units_per_classifier_layer": []
+      },
+      "backbone_name": "resnet50",
+      "freeze_backbone": false,
+      "sequence_encoder": {
+        "n_embedding_dims": 384,
+        "n_seq_encoder_layers": 1,
+        "seq_encoder_activation": null,
+        "n_units_per_seq_encoder_layer": []
+      }
+  },
+    "dataloaders": {
+      "drop_last": false,
+      "batch_size": 64,
+      "pin_memory": true,
+      "num_workers": 0,
+      "dataset_type": "ram_dataset",
+      "prefetch_factor": null,
+      "persistent_workers": false
+    },
+    "early_stopping": {
+      "mode": "min",
+      "monitor": "val_loss",
+      "verbose": true,
+      "patience": 5
+    },
+    "callbacks": {
+      "add_early_stopping": true,
+      "add_model_checkpoint": true
+    },
+    "optimization": {
+      "optimizer": "Adam",
+      "lr_schedule": "warmup_cosine",
+      "optimizer_params": {
+        "lr": 0.0005
+      },
+      "lr_schedule_params": {
+        "T_max": 90,
+        "eta_min": 0.000001,
+        "start_factor": 0.1,
+        "warmup_iters": 14
+      }
+  },
+    "trainer": {
+      "precision": "32-true",
+      "max_epochs": 100,
+      "accelerator": "auto",
+      "log_every_n_steps": 50,
+      "enable_checkpointing": true
+    },
+    "project": "SongRecommenderSystem",
+    "run_name": "resnet50_IMAGENET1K_V1_no_aug",
+    "do_pre_epoch_hook": false
+  }
   }
 ]
