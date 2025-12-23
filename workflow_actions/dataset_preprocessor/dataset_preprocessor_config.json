@@ -1,9 +1,9 @@
 {
-  "n_workers": 4,
+  "n_workers": 12,
   "fragment_pipeline": {
-    "apply_augmentations_on_raw": false,
-    "extract_spectrograms": false,
-    "apply_augmentations_on_spectrograms": false,
+    "apply_augmentations_on_raw": true,
+    "extract_spectrograms": true,
+    "apply_augmentations_on_spectrograms": true,
     "raw_augment": {
       "augmentations": [
         {
@@ -11,7 +11,7 @@
           "params": {
             "min_amplitude": 0.003,
             "max_amplitude": 0.02,
-            "p": 0.5
+            "p": 0.25
           }
         },
         {
@@ -19,7 +19,7 @@
           "params": {
             "min_semitones": -4,
             "max_semitones": 4,
-            "p": 0.5
+            "p": 0.25
           }
         },
         {
@@ -27,7 +27,7 @@
           "params": {
             "min_bitrate": 8,
             "max_bitrate": 64,
-            "p": 0.5
+            "p": 0.25
           }
         }
       ]
@@ -38,6 +38,7 @@
       "n_mels": 80
     },
     "spectrogram_augment": {
+      "augmentations_p": 0.3,
       "augmentations": [
         {
           "name": "TimeMasking",

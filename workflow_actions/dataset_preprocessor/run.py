@@ -13,5 +13,4 @@ def make_dp():
 
 if __name__ == "__main__":
     dp = make_dp()
-    dp.prepare_model_ready_data(for_sanity_check=True)
-    # dp.sample_packer.pack()
+    dp.prepare_model_ready_data(for_sanity_check=False)

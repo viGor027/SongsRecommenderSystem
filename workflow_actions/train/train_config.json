@@ -23,10 +23,10 @@
       "drop_last": false,
       "batch_size": 32,
       "pin_memory": true,
-      "num_workers": 0,
-      "dataset_type": "ram_dataset",
-      "prefetch_factor": null,
-      "persistent_workers": false
+      "num_workers": 6,
+      "dataset_type": "augmented_dataset",
+      "prefetch_factor": 10,
+      "persistent_workers": true
     },
     "early_stopping": {
       "mode": "min",
@@ -60,6 +60,6 @@
     },
     "project": "SongRecommenderSystem",
     "run_name": "TO_BE_OVERWRITTEN",
-    "do_pre_epoch_hook": false
+    "do_pre_epoch_hook": true
   }
 }

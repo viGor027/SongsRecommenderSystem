@@ -18,8 +18,9 @@ class SpectrogramAugment:
         "FrequencyMasking": T.FrequencyMasking,
     }
 
-    def __init__(self, augmentations: list[dict]):
+    def __init__(self, augmentations_p: float, augmentations: list[dict]):
         self.transforms = []
+        self.p = augmentations_p
 
         for aug_cfg in augmentations:
             name = aug_cfg["name"]
@@ -41,7 +42,7 @@ class SpectrogramAugment:
         for spec in spectrograms:
             augmented_spec = spec
             for t in self.transforms:
-                if random.random() < 0.5:
+                if random.random() < self.p:
                     augmented_spec = t(augmented_spec, mask_value=-80.0)
             augmented_specs.append(augmented_spec)
         return augmented_specs
