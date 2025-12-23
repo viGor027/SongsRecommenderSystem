@@ -2,7 +2,7 @@ import lightning as L
 import torch.nn as nn
 import torch
 from workflow_actions.dataset_preprocessor.run import (
-    dp,
+    make_dp,
 )
 from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
 from dataclasses import dataclass
@@ -27,6 +27,8 @@ class TrainerModule(L.LightningModule):
         self.validation_targets = []
 
         self.do_pre_epoch_hook = do_pre_epoch_hook
+        if self.do_pre_epoch_hook:
+            self.dp = make_dp()
 
         self._optimizers_map = {
             "AdamW": torch.optim.AdamW,
@@ -91,4 +93,4 @@ class TrainerModule(L.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         if self.do_pre_epoch_hook:
-            dp.prepare_model_ready_data()
+            self.dp.prepare_model_ready_data()
