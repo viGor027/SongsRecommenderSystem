@@ -90,8 +90,3 @@ class SamplePacker:
                     torch.save(y_i, folder / f"y_{sample_id}.pt")
 
                 shard_path.unlink()
-
-
-if __name__ == "__main__":
-    sp = SamplePacker(group_size=64, shuffle_before_pack=True)
-    sp.pack()
