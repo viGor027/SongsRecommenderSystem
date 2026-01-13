@@ -10,9 +10,14 @@ if TYPE_CHECKING:
 
 class FragmentsMetric(ABC):
     def __init__(
-        self, model: "Assembly", space: torch.Tensor, index: dict[str, list[int, int]]
+        self,
+        model: "Assembly",
+        model_name: str,
+        space: torch.Tensor,
+        index: dict[str, list[int, int]],
     ):
         self.model = model
+        self.model_name = model_name
         self.space = space
         self.index = index
 
@@ -27,12 +32,17 @@ class FragmentsMetric(ABC):
 
 class RandomizedABXTest(FragmentsMetric):
     def __init__(
-        self, model: "Assembly", space: torch.Tensor, index: dict[str, list[int, int]]
+        self,
+        model: "Assembly",
+        model_name: str,
+        space: torch.Tensor,
+        index: dict[str, list[int, int]],
     ):
         """index maps song title to global fragment numbers inside space."""
         super().__init__(
             model=model,
             space=space,
+            model_name=model_name,
             index=index,
         )
         self.songs = list(index.keys())
@@ -46,11 +56,9 @@ class RandomizedABXTest(FragmentsMetric):
             n_songs=n_songs, k_triplets=self.k_triplets
         )
 
-        device = self.space.device
-
-        a_idx = torch.tensor([t[0] for t in triplets], dtype=torch.long, device=device)
-        b_idx = torch.tensor([t[1] for t in triplets], dtype=torch.long, device=device)
-        x_idx = torch.tensor([t[2] for t in triplets], dtype=torch.long, device=device)
+        a_idx = torch.tensor([t[0] for t in triplets])
+        b_idx = torch.tensor([t[1] for t in triplets])
+        x_idx = torch.tensor([t[2] for t in triplets])
 
         A = self.space[a_idx]
         B = self.space[b_idx]
@@ -59,14 +67,14 @@ class RandomizedABXTest(FragmentsMetric):
         sim_AX = F.cosine_similarity(A, X)
         sim_BX = F.cosine_similarity(B, X)
 
-        preds = (sim_BX > sim_AX).long()
-        labels_tensor = torch.tensor(labels, dtype=torch.long, device=device)
+        preds = sim_BX > sim_AX
+        labels_tensor = torch.tensor(labels, dtype=torch.bool)
 
         acc = (preds == labels_tensor).float().mean().item()
         return acc
 
     def __repr__(self) -> str:
-        return f"RandomizedABXTest with {self.k_triplets}"
+        return f"RandomizedABXTest with {self.k_triplets} for model {self.model_name}"
 
     def _get_triplets(self, n_songs: int, k_triplets: int):
         """
