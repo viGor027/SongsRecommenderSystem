@@ -53,11 +53,24 @@ class ModelInitializer:
             "AggregatorAssembly": self._aggregator_assembly_init,
         }
 
-    def get_pretrained_torch_model(self):
-        raise NotImplementedError("Implement this method")
+    @staticmethod
+    def load_assembly_weights(
+        model_assembly, model_ckpt_filename, map_location: str = "cpu"
+    ):
+        ckpt = torch.load(
+            TRAINED_MODELS_DIR / model_ckpt_filename,
+            map_location=map_location,
+        )
+        state_dict = ckpt["state_dict"]
 
-    def get_model_from_pretrained(self):
-        raise NotImplementedError("Implement this method")
+        # TrainerModule: self.model = model
+        state_dict = {
+            k.removeprefix("model."): v
+            for k, v in state_dict.items()
+            if k.startswith("model.")
+        }
+        model_assembly.load_state_dict(state_dict=state_dict)
+        return model_assembly
 
     def get_model_assembly(
         self, assembly_config: dict
@@ -99,19 +112,11 @@ class ModelInitializer:
         embedding_model_assembly = self.get_model_assembly(
             assembly_config=embedding_model_config
         )
-        ckpt = torch.load(
-            TRAINED_MODELS_DIR / embedding_model_ckpt_filename,
+        embedding_model_assembly = self.load_assembly_weights(
+            model_assembly=embedding_model_assembly,
+            model_ckpt_filename=embedding_model_ckpt_filename,
             map_location=map_location,
         )
-        state_dict = ckpt["state_dict"]
-
-        # TrainerModule: self.model = model
-        state_dict = {
-            k.removeprefix("model."): v
-            for k, v in state_dict.items()
-            if k.startswith("model.")
-        }
-        embedding_model_assembly.load_state_dict(state_dict=state_dict)
 
         aggregator_assembly = self.assembly_map[assembly_class_name](
             embedding_model=embedding_model_assembly,
