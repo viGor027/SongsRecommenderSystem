@@ -1,32 +1,43 @@
 {
   "run_single_training_config": {
     "architecture": {
-      "weights": "IMAGENET1K_V1",
-      "class_name": "ResNetAssembly",
-      "backbone_name": "TO_BE_OVERWRITTEN",
-      "freeze_backbone": false,
-      "classifier": {
-        "n_classes": 110,
-        "sigmoid_output": true,
-        "n_classifier_layers": 1,
-        "classifier_activation": null,
-        "n_units_per_classifier_layer": []
-      },
-      "sequence_encoder": {
-        "n_embedding_dims": 384,
-        "n_seq_encoder_layers": 1,
-        "seq_encoder_activation": null,
-        "n_units_per_seq_encoder_layer": []
-      }
+    "class_name": "AggregatorAssembly",
+    "aggregator_type": "lstm",
+    "trainable_aggregator": false,
+    "embedding_model_ckpt_filename": "resnet101_IMAGENET1K_V1_raw_aug_spec_aug-epoch=26-val_loss=0.0218_64_batch.ckpt",
+    "embedding_model_config": {
+        "backbone_name": "resnet101",
+        "freeze_backbone": false,
+        "weights": "IMAGENET1K_V1",
+        "class_name": "ResNetAssembly",
+        "sequence_encoder": {
+            "n_embedding_dims": 384,
+            "n_seq_encoder_layers": 1,
+            "seq_encoder_activation": null,
+            "n_units_per_seq_encoder_layer": []
+        },
+        "classifier": {
+            "n_classes": 110,
+            "sigmoid_output": null,
+            "n_classifier_layers": 1,
+            "classifier_activation": null,
+            "n_units_per_classifier_layer": []
+        }
     },
+    "classifier": {
+        "n_classes": 110
+    },
+    "map_location": "cpu"
+},
     "dataloaders": {
       "drop_last": false,
-      "batch_size": 32,
+      "batch_size": 1,
       "pin_memory": true,
-      "num_workers": 6,
+      "num_workers": 0,
       "dataset_type": "augmented_dataset",
-      "prefetch_factor": 10,
-      "persistent_workers": true
+      "prefetch_factor": null,
+      "persistent_workers": false,
+      "collate": false
     },
     "early_stopping": {
       "mode": "min",
@@ -40,16 +51,11 @@
     },
     "optimization": {
       "optimizer": "Adam",
-      "lr_schedule": "warmup_cosine",
       "optimizer_params": {
-        "lr": 0.0002
+        "lr": 1e-3
       },
-      "lr_schedule_params": {
-        "T_max": 90,
-        "eta_min": 0.000001,
-        "start_factor": 0.1,
-        "warmup_iters": 20
-      }
+      "lr_schedule": null,
+      "lr_schedule_params": null
     },
     "trainer": {
       "precision": "32-true",
@@ -60,6 +66,6 @@
     },
     "project": "SongRecommenderSystem",
     "run_name": "TO_BE_OVERWRITTEN",
-    "do_pre_epoch_hook": true
+    "do_pre_epoch_hook": false
   }
 }

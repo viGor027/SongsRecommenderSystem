@@ -14,7 +14,12 @@ from workflow_actions.json_handlers import read_json_to_dict
 
 
 class Serializer:
-    def __init__(self, load_sample_rate: int, serialize_song_wise: bool):
+    def __init__(
+        self,
+        load_sample_rate: int,
+        serialize_song_wise: bool,
+        creating_fragmentation: bool,
+    ):
         """
         Notes:
          - serialize_song_wise=False requires both indexes of GlobalFragmentsIndex to exist on disk.
@@ -32,7 +37,7 @@ class Serializer:
                 "valid": self.global_fragments_index.valid_index,
             }
         except FileNotFoundError as e:
-            if not self._serialize_song_wise:
+            if not self._serialize_song_wise and not creating_fragmentation:
                 print(
                     "Serializer.__init__ WARNING:\n"
                     "global_fragments indexes were not found on disk.\n"
@@ -40,10 +45,10 @@ class Serializer:
                     "Set serialize_song_wise to True and try again.\n"
                 )
                 raise e
-
-        self._fragmentation_index = read_json_to_dict(FRAGMENTATION_INDEX_PATH)[
-            "fragmentation_index"
-        ]
+        if not creating_fragmentation:
+            self._fragmentation_index = read_json_to_dict(FRAGMENTATION_INDEX_PATH)[
+                "fragmentation_index"
+            ]
 
     def serialize_song_samples(
         self,

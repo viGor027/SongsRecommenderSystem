@@ -49,7 +49,7 @@ def _process_single_song_mp(
 
     chunker = Chunker(**chunker_cfg)
     fragment_pipeline = FragmentPipeline(**pipeline_cfg)
-    serializer = Serializer(**serializer_cfg)
+    serializer = Serializer(**serializer_cfg, creating_fragmentation=False)
 
     frag_index = read_json_to_dict(FRAGMENTATION_INDEX_PATH)["fragmentation_index"][
         song_title
@@ -92,6 +92,7 @@ class DatasetPreprocessor:
     def __init__(
         self,
         n_workers: int,
+        creating_fragmentation: bool,
         chunker: dict,
         fragment_pipeline: dict,
         sample_packer: dict,
@@ -106,7 +107,9 @@ class DatasetPreprocessor:
         self.fragment_pipeline = FragmentPipeline(**self.fragment_pipeline_cfg)
 
         self.serializer_cfg = serializer
-        self.serializer = Serializer(**self.serializer_cfg)
+        self.serializer = Serializer(
+            **self.serializer_cfg, creating_fragmentation=creating_fragmentation
+        )
 
         self.sample_packer = SamplePacker(**sample_packer)
 
@@ -123,12 +126,13 @@ class DatasetPreprocessor:
         else:
             _sample_rate = self.fragment_pipeline.spectrogram_extractor.sample_rate
 
-        self._packed_fragmentation_index = self._load_fragmentation_index()
-        self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = (
-            self._packed_fragmentation_index[0]
-        )
-        self._fragmentation_index_time_stamp = self._packed_fragmentation_index[1]
-        self._index_present_songs = set(list(self._fragmentation_index.keys()))
+        if not creating_fragmentation:
+            self._packed_fragmentation_index = self._load_fragmentation_index()
+            self._fragmentation_index: dict[str, "FragmentedSongIndex"] | None = (
+                self._packed_fragmentation_index[0]
+            )
+            self._fragmentation_index_time_stamp = self._packed_fragmentation_index[1]
+            self._index_present_songs = set(list(self._fragmentation_index.keys()))
 
         self._broken_songs = []
 

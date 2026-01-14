@@ -36,7 +36,15 @@ DOWNLOAD_SONGS_CONFIG_PATH = (
     WORKFLOWS_ROOT / "download_songs" / "download_songs_config.json"
 )
 
+EVALUATE_MODEL_CONFIG_PATH = (
+    WORKFLOWS_ROOT / "evaluate_model" / "evaluate_model_confing.json"
+)
+
 TRAINED_MODELS_DIR = PROJECT_ROOT / "models"
+
+TRAINED_MODELS_CONFIG_PATHS = (
+    DATA_DIR / "trained_model_configs" / "trained_model_configs.json"
+)
 
 _DIRS_TO_INIT = [
     DATA_DIR,

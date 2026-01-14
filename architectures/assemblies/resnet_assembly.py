@@ -119,6 +119,9 @@ class ResNetAssembly(nn.Module, Assembly):
 
     @staticmethod
     def _resize_layer(x):
+        if x.ndim == 5:
+            B, T, C, H, W = x.shape
+            x = x.view(B * T, C, H, W)
         if x.ndim == 3:
             x = x.unsqueeze(1)
         x = torch.nn.functional.interpolate(

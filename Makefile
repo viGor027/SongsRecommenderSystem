@@ -36,3 +36,6 @@ unpack_raw_fragmented:
 
 get_models:
 	scp -r -i C:\Users\Wiktor\.ssh\vast_key -P $(PORT) root@$(IP):/app/models "D:\Nauka\Projekty\SongsRecommenderSystem"
+
+send_model_checkpoint:
+	type "D:\Nauka\Projekty\SongsRecommenderSystem\models\$(CKPT_FNAME)" | ssh -i C:\Users\Wiktor\.ssh\vast_key -p $(PORT) root@$(IP) "cat > /app/models/$(CKPT_FNAME)"

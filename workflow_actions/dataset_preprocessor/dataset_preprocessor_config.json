@@ -1,9 +1,10 @@
 {
-  "n_workers": 12,
+  "creating_fragmentation": false,
+  "n_workers": 4,
   "fragment_pipeline": {
-    "apply_augmentations_on_raw": true,
+    "apply_augmentations_on_raw": false,
     "extract_spectrograms": true,
-    "apply_augmentations_on_spectrograms": true,
+    "apply_augmentations_on_spectrograms": false,
     "raw_augment": {
       "augmentations": [
         {
@@ -59,15 +60,15 @@
   },
   "chunker": {
     "sample_rate": 22050,
-    "validation_probability": 0.08,
+    "validation_probability": 0.0,
     "n_seconds": 5,
-    "step": 1
+    "step": null
   },
   "sample_packer": {
     "group_size": null
   },
   "serializer": {
     "load_sample_rate": 22050,
-    "serialize_song_wise": false
+    "serialize_song_wise": true
   }
 }

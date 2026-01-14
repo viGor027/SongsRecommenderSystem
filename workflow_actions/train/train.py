@@ -190,6 +190,7 @@ class Train:
         prefetch_factor: int = 2,
         pin_memory: bool = True,
         drop_last: bool = False,
+        collate: bool = True,
     ):
         dataset_cls = {
             "ram_dataset": RamDataset,
@@ -208,7 +209,7 @@ class Train:
             prefetch_factor=prefetch_factor,
             pin_memory=pin_memory,
             drop_last=drop_last,
-            collate_fn=dataset_cls.collate_concat,
+            collate_fn=(dataset_cls.collate_concat if collate else None),
         )
 
         valid_loader = DataLoader(
@@ -220,7 +221,7 @@ class Train:
             prefetch_factor=prefetch_factor,
             pin_memory=pin_memory,
             drop_last=False,
-            collate_fn=dataset_cls.collate_concat,
+            collate_fn=(dataset_cls.collate_concat if collate else None),
         )
         return train_loader, valid_loader
 

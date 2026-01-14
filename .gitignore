@@ -185,5 +185,6 @@ wandb/
 WB_tests/
 config_bak/
 bibliografia
+draft/
 
 *.png
