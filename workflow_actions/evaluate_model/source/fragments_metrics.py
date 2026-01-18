@@ -4,7 +4,6 @@ import torch
 import random
 import torch.nn.functional as F
 from workflow_actions.dataset_preprocessor.source import LabelEncoder
-from workflow_actions.paths import MODEL_READY_TRAIN_DIR
 
 if TYPE_CHECKING:
     from architectures.assemblies.assembly import Assembly
@@ -16,9 +15,10 @@ class FragmentsMetric(ABC):
         model: "Assembly",
         model_name: str,
         index: dict[str, list[int, int]],
+        Xs: list[torch.Tensor],
     ):
         """
-        index maps song title to global fragment numbers inside space.
+        Index maps song title to global fragment numbers inside space.
 
         Note: MODEL_READY_TRAIN_DIR has only train samples for embedding space `space` as validation probability is 0 for this space fragmentation
         """
@@ -26,6 +26,7 @@ class FragmentsMetric(ABC):
         self.model.eval()
         self.model_name = model_name
         self.index = index
+        self.Xs = Xs
 
     @abstractmethod
     def __call__(self, **kwargs):
@@ -42,11 +43,13 @@ class RandomizedABXTest(FragmentsMetric):
         model: "Assembly",
         model_name: str,
         index: dict[str, list[int, int]],
+        Xs: list[torch.Tensor],
     ):
         super().__init__(
             model=model,
             model_name=model_name,
             index=index,
+            Xs=Xs,
         )
         self.songs = list(index.keys())
         self.k_triplets = None
@@ -61,21 +64,9 @@ class RandomizedABXTest(FragmentsMetric):
 
         A, B, X = [], [], []
         for a_idx, b_idx, x_idx in triplets:
-            A.append(
-                self.model.make_embeddings(
-                    torch.load(MODEL_READY_TRAIN_DIR / f"X_{a_idx}.pt")
-                )
-            )
-            B.append(
-                self.model.make_embeddings(
-                    torch.load(MODEL_READY_TRAIN_DIR / f"X_{b_idx}.pt")
-                )
-            )
-            X.append(
-                self.model.make_embeddings(
-                    torch.load(MODEL_READY_TRAIN_DIR / f"X_{x_idx}.pt")
-                )
-            )
+            A.append(self.model.make_embeddings(self.Xs[a_idx]))
+            B.append(self.model.make_embeddings(self.Xs[b_idx]))
+            X.append(self.model.make_embeddings(self.Xs[x_idx]))
 
         A = torch.cat(A)
         B = torch.cat(B)
@@ -91,7 +82,7 @@ class RandomizedABXTest(FragmentsMetric):
         return {"abx_accuracy": acc}
 
     def __repr__(self) -> str:
-        return f"RandomizedABXTest with {self.k_triplets} for model {self.model_name}"
+        return f"RandomizedABXTest with {self.k_triplets} triplets for model {self.model_name}"
 
     def _get_triplets(self, n_songs: int, k_triplets: int):
         """
@@ -143,11 +134,13 @@ class AccuraccyTest(FragmentsMetric):
         model: "Assembly",
         model_name: str,
         index: dict[str, list[int, int]],
+        Xs: list[torch.Tensor],
     ):
         super().__init__(
             model=model,
             model_name=model_name,
             index=index,
+            Xs=Xs,
         )
         self.le = LabelEncoder()
         self.songs = list(index.keys())
@@ -160,26 +153,41 @@ class AccuraccyTest(FragmentsMetric):
         correctly_predicted_labels = 0
 
         n_exact_matches = 0
+        one2nine_labels_wrong = 0
+        ten2ninety_nine_labels_wrong = 0
+        over_hundred_labels_wrong = 0
         for song in self.songs:
             song_labels = self.le.encode_song_labels_to_multi_hot_vector(
                 song_title=song
-            )
+            ).reshape(-1)
             for idx in range(self.index[song][0], self.index[song][1] + 1):
-                predicted_ppbs = self.model.forward(
-                    torch.load(MODEL_READY_TRAIN_DIR / f"X_{idx}.pt")
-                )
-                predicted_labels = (predicted_ppbs > 0.5).float()
+                predicted_ppbs = self.model.forward(self.Xs[idx])
+                predicted_labels = (predicted_ppbs > 0.5).float().reshape(-1)
 
-                correctly_predicted_labels += (
+                correctly_predicted_labels += int(
                     (song_labels == predicted_labels).float().sum().item()
                 )
                 total_labels += len(song_labels)
 
-                if torch.equal(predicted_labels, song_labels):
+                mismatches = int((song_labels != predicted_labels).float().sum().item())
+
+                if mismatches == 0:
                     n_exact_matches += 1
+                elif mismatches <= 9:
+                    one2nine_labels_wrong += 1
+                elif mismatches < 100:
+                    ten2ninety_nine_labels_wrong += 1
+                else:
+                    over_hundred_labels_wrong += 1
+
         return {
             "micro_accuracy": correctly_predicted_labels / total_labels,
             "exact_matches": n_exact_matches / self.total_number_of_fragments,
+            "1-9 labels wrong": one2nine_labels_wrong / self.total_number_of_fragments,
+            "10-99 labels wrong": ten2ninety_nine_labels_wrong
+            / self.total_number_of_fragments,
+            "100+ labels wrong": over_hundred_labels_wrong
+            / self.total_number_of_fragments,
         }
 
     def __repr__(self) -> str:

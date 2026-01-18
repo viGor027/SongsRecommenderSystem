@@ -1,0 +1,8 @@
+{
+  "model_ckpt_filenames": [
+    "BestDenseAssembly_no_aug-epoch=31-val_loss=0.0561.ckpt"
+  ],
+  "tests_to_perform": [
+    "AccuraccyTest"
+  ]
+}
