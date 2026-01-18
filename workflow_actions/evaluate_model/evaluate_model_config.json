@@ -1,6 +1,9 @@
 {
   "model_ckpt_filenames": [
-    "BestDenseAssembly_no_aug-epoch=31-val_loss=0.0561.ckpt"
+    "BestCnnDenseC2D1_no_aug-epoch=10-val_loss=0.0626.ckpt",
+    "BestCnnDenseC2D2_no_aug-epoch=13-val_loss=0.0602.ckpt",
+    "resnet18_NONE_no_aug-epoch=06-val_loss=0.0597.ckpt",
+    "resnet34_NONE_no_aug-epoch=10-val_loss=0.0556.ckpt"
   ],
   "tests_to_perform": [
     "AccuraccyTest"
