@@ -69,6 +69,6 @@
   },
   "serializer": {
     "load_sample_rate": 22050,
-    "serialize_song_wise": true
+    "serialize_song_wise": false
   }
 }
