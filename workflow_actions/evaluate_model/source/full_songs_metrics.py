@@ -4,6 +4,8 @@ from workflow_actions.json_handlers import read_json_to_dict
 from .metric import Metric
 import torch
 from typing import TYPE_CHECKING
+from tqdm import tqdm
+from collections import Counter
 
 if TYPE_CHECKING:
     from architectures.assemblies.assembly import Assembly
@@ -28,48 +30,42 @@ class AccuraccyTestFullSongs(Metric):
             "fragmentation_index"
         ]
         self.songs = list(index.keys())
+        self.song2idx = {
+            song: i for i, song in enumerate(list(self._fragmentation_index.keys()))
+        }
         self.n_songs = len(self.songs)
 
     def __call__(self, **kwargs):
         total_labels = 0
         correctly_predicted_labels = 0
 
-        n_exact_matches = 0
-        one2nine_labels_wrong = 0
-        ten2ninety_nine_labels_wrong = 0
-        over_hundred_labels_wrong = 0
-        for song in self.songs:
-            print(f"model: {self.model_name}, song: {song}")
+        mismatches_list = []
+        song_prediction_probabilities_vectors = {}
+
+        for song in tqdm(self.songs):
             song_labels = self.le.encode_song_labels_to_multi_hot_vector(
                 song_title=song
             ).reshape(-1)
 
-            idx = list(self._fragmentation_index.keys()).index(song)
-            predicted_ppbs = self.model.forward(self.Xs[idx])
-            predicted_labels = (predicted_ppbs > 0.5).float().reshape(-1)
+            predicted_ppbs = self.model.forward(self.Xs[self.song2idx[song]]).reshape(
+                -1
+            )
+            song_prediction_probabilities_vectors[song] = predicted_ppbs.tolist()
+            print(song_prediction_probabilities_vectors[song])
+            predicted_labels = (predicted_ppbs > 0.5).float()
 
             correctly_predicted_labels += int(
                 (song_labels == predicted_labels).float().sum().item()
             )
             total_labels += len(song_labels)
 
-            mismatches = int((song_labels != predicted_labels).float().sum().item())
-
-            if mismatches == 0:
-                n_exact_matches += 1
-            elif mismatches <= 9:
-                one2nine_labels_wrong += 1
-            elif mismatches < 100:
-                ten2ninety_nine_labels_wrong += 1
-            else:
-                over_hundred_labels_wrong += 1
+            mismatches_list.append(
+                int((song_labels != predicted_labels).float().sum().item())
+            )
 
         return {
-            "micro_accuracy": correctly_predicted_labels / total_labels,
-            "exact_matches": n_exact_matches / self.n_songs,
-            "1-9 labels wrong": one2nine_labels_wrong / self.n_songs,
-            "10-99 labels wrong": ten2ninety_nine_labels_wrong / self.n_songs,
-            "100+ labels wrong": over_hundred_labels_wrong / self.n_songs,
+            "song predictions probabilities vectors": song_prediction_probabilities_vectors,
+            "mismatches": dict(Counter(mismatches_list)),
         }
 
     def __repr__(self) -> str:
