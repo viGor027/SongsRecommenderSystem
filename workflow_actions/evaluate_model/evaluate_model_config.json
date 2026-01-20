@@ -1,11 +1,11 @@
 {
   "model_ckpt_filenames": [
-    "BestCnnDenseC2D1_no_aug-epoch=10-val_loss=0.0626.ckpt",
-    "BestCnnDenseC2D2_no_aug-epoch=13-val_loss=0.0602.ckpt",
-    "resnet18_NONE_no_aug-epoch=06-val_loss=0.0597.ckpt",
-    "resnet34_NONE_no_aug-epoch=10-val_loss=0.0556.ckpt"
+    "Aggregator_averageFalse-epoch=00-val_loss=0.1296.ckpt",
+    "Aggregator_lstmFalse-epoch=05-val_loss=0.1165.ckpt",
+    "Aggregator_lstmTrue-epoch=12-val_loss=0.1025.ckpt",
+    "AggregatorAssembly_BestDenseAssembly_average-epoch=00-val_loss=0.2418.ckpt"
   ],
   "tests_to_perform": [
-    "AccuraccyTest"
+    "AccuraccyTestFullSongs"
   ]
 }

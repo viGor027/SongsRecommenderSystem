@@ -1,4 +1,8 @@
-from workflow_actions.evaluate_model.source import AccuraccyTest, RandomizedABXTest
+from workflow_actions.evaluate_model.source import (
+    AccuraccyTest,
+    RandomizedABXTest,
+    AccuraccyTestFullSongs,
+)
 from workflow_actions.paths import (
     TRAINED_MODELS_CONFIG_PATHS,
     GLOBAL_TRAIN_INDEX_PATH,
@@ -26,6 +30,7 @@ class EvaluateModel:
         str2test = {
             "AccuraccyTest": AccuraccyTest,
             "RandomizedABXTest": RandomizedABXTest,
+            "AccuraccyTestFullSongs": AccuraccyTestFullSongs,
         }
 
         self.tests = [str2test[test_str] for test_str in tests_to_perform]
